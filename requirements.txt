@@ -1,0 +1,16 @@
+# Flask framework and core dependencies
+Flask>=2.3,<3.1
+Werkzeug>=2.3,<3.1
+Jinja2>=3.1,<3.2
+itsdangerous>=2.1,<2.2
+click>=8.1,<8.2
+
+# Flask extensions
+Flask-WTF>=1.1,<1.3
+WTForms>=3.0,<3.2  # Dependency of Flask-WTF
+Flask-Login>=0.6,<0.7
+
+# Environment variable handling
+python-dotenv>=1.0,<1.1
+
+# Note: You don't need sqlite3 here as it's a built-in Python module.

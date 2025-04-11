@@ -1,0 +1,194 @@
+Okay, let's refine the workflow significantly to align perfectly with the specific project requirements you've provided, especially the crucial point about manual SQL queries and no migration tools.
+This revised workflow prioritizes meeting the explicit grading criteria.
+Key Changes Based on Requirements:
+Manual SQL: All database interactions (CRUD, Joins, Aggregation, Grouping, Filtering) will use manually written SQL strings executed via Flask's database connection handling (likely with SQLite for simplicity, as allowed). No SQLAlchemy ORM or Flask-Migrate.
+Database Setup: Schema creation will be done via a manual schema.sql file or similar script.
+Documentation Emphasis: Problem Analysis, ERD, and Normalization justification are now explicit deliverables for the presentation and need dedicated steps.
+Specific Query Types: The workflow will ensure the required SQL query types (JOINs, Aggregation, Filter, GROUP BY) are explicitly implemented and identifiable.
+Record Count: Adjusted data seeding requirement to "at least 10 records per table". (Your proposal aimed for 20, which is fine, but 10 is the minimum).
+Table Count: Requirement is 5+ tables. Your proposed 8 tables meet this.
+
+Revised Detailed Workflow (Manual SQL Focus)
+Team Members:
+P: Priyanshu Pyakurel
+Sa: Sanij Shrestha
+Sr: Srijan Sapkota
+Core Technologies:
+Backend: Flask (Python)
+Database: SQLite (Recommended for simplicity given manual SQL) or MySQL. Direct DB-API connection (e.g., sqlite3 module) or Flask's application context (g) for connection management.
+Frontend: HTML, CSS (Bootstrap/Tailwind optional), JavaScript (optional, for minor enhancements)
+Version Control: Git & GitHub/GitLab
+Forms: Flask-WTF (Still useful for form validation and generation, even without ORM integration)
+Authentication: Flask-Login (Can be used, but user loading function will require manual SQL)
+NO ORM: No Flask-SQLAlchemy.
+NO MIGRATIONS: No Flask-Migrate.
+Project Management:
+Use Trello/Asana/GitHub Projects, regular communication, shared Git repository.
+
+Phase 1: Setup, Design & Documentation (Duration: ~2-3 days) - Collaborative
+Project Initialization & Basic Setup (Lead: Sa, Support: P, Sr)
+Set up shared Git repository.
+Define project structure (app/, static/, templates/, db/, config.py, requirements.txt, run.py, schema.sql).
+Set up virtual environments.
+Install core dependencies: Flask, Flask-WTF, Flask-Login, python-dotenv. Do NOT install Flask-SQLAlchemy/Flask-Migrate.
+Create requirements.txt.
+Set up basic Flask app (__init__.py) with configuration.
+Set up database connection handling (e.g., functions in db.py to get/close DB connection using sqlite3 and Flask's g object or application context).
+Create a simple "Hello World" route.
+Outcome: Base Flask structure, Git repo, DB connection utilities ready.
+
+
+Problem Analysis & Database Design (Lead: Sr, Review: P, Sa)
+Write Problem Analysis: Document the key problems the marketplace solves and identify the core entities needed (Users, Products, Categories, etc.). This document is required for the presentation.
+Design ER Diagram: Create the ERD for the planned 5+ tables (sticking with your proposed 8 is good). Clearly show entities, attributes, primary keys, foreign keys, and relationships. This diagram is required for the presentation.
+Normalization Analysis: Explicitly analyze the schema and document how it achieves 3rd Normal Form (3NF). Explain potential anomalies prevented. This analysis is required for the presentation.
+Tables (Example based on proposal): Users, Campuses, Categories, Products, Product_Images, Comments, Likes (as join table), Reviews. Ensure these meet 3NF.
+
+
+Write schema.sql: Create a file (db/schema.sql) containing the CREATE TABLE statements for all tables, including constraints (PK, FK, NOT NULL, UNIQUE).
+Outcome: Written Problem Analysis, ERD, Normalization Document, and a schema.sql file.
+
+
+API/Route Planning (Lead: P, Review: Sa, Sr)
+List necessary routes and HTTP methods (as in the original workflow).
+Crucially, map which specific SQL queries (CRUD, JOIN, AGG, FILTER, GROUP BY) will be needed for each route.
+Outcome: Defined routes linked to required SQL operations.
+
+
+Initial Schema Creation (Lead: Sa, Support: Sr)
+Write a simple script or Flask CLI command (e.g., flask init-db) that reads schema.sql and executes it against the SQLite database file to create the tables.
+Outcome: Empty database file with the correct schema created.
+
+
+
+Phase 2: Core Backend Development - Manual SQL (Duration: ~6-8 days) - Parallel Tasks
+IMPORTANT: All database interactions in this phase use helper functions (from db.py or similar) to get a DB cursor, execute manually written SQL strings (using parameterized queries to prevent SQL injection), fetch results, and commit changes.
+Database Interaction Module (Responsibility: Sr)
+Refine and centralize functions for database interaction (e.g., in db.py). Functions like get_db(), close_db(), execute_query(query, params=()), fetch_one(query, params=()), fetch_all(query, params=()).
+Ensure proper connection closing (using Flask's teardown_appcontext).
+Outcome: Robust utility functions for executing raw SQL.
+
+
+User Authentication & Profile (Manual SQL) (Responsibility: P)
+Implement User Registration:
+Form (Flask-WTF).
+Route logic: Validate form, perform .edu check, hash password, execute INSERT INTO users (...) VALUES (...) SQL query.
+
+
+Implement User Login/Logout:
+Login Form (Flask-WTF).
+Route logic: Validate form, execute SELECT id, password_hash FROM users WHERE email = ? SQL query, verify password hash, use Flask-Login's login_user.
+Implement Flask-Login's user_loader callback using a SELECT * FROM users WHERE id = ? SQL query.
+Logout route logic using logout_user.
+
+
+Implement User Profile Viewing: Route logic executes SELECT ... FROM users WHERE id = ? SQL query.
+Implement User Profile Editing (User CRUD - Update): Form and route logic executing UPDATE users SET ... WHERE id = ? SQL query.
+Outcome: User registration, login, logout, profile view/edit using manual SQL. User CRUD Read/Update covered. (Create is Registration).
+
+
+Product CRUD Operations (Manual SQL) (Responsibility: Sa)
+Implement Product Creation (Product CRUD - Create): Form (Flask-WTF) and route logic executing INSERT INTO products (...) VALUES (...) SQL query. Handle image uploads separately (store path in DB).
+Implement Product View (Product CRUD - Read): Route logic executes SELECT p.*, u.name as seller_name, c.name as category_name FROM products p JOIN users u ON p.seller_id = u.id JOIN categories c ON p.category_id = c.id WHERE p.id = ? (Manual JOIN Example #1).
+Implement Product Update (Product CRUD - Update): Form and route logic executing UPDATE products SET ... WHERE id = ? AND seller_id = ? (ensure owner).
+Implement Product Deletion (Product CRUD - Delete): Route logic executing DELETE FROM products WHERE id = ? AND seller_id = ? (ensure owner).
+Implement basic Product Listing (Homepage): Route logic executes SELECT ... FROM products WHERE status = 'available' ... SQL query.
+Outcome: Full Product CRUD using manual SQL. Demonstrates one required JOIN.
+
+
+
+Phase 3: Feature Implementation - Manual SQL (Duration: ~6-8 days) - Parallel Tasks
+Search & Filtering (Manual SQL) (Responsibility: Sr)
+Implement search form (GET).
+Implement backend route logic:
+Build a SELECT ... FROM products ... query dynamically.
+Add WHERE clauses based on form inputs (search term LIKE ?, category category_id = ?, price price BETWEEN ? AND ?). Use parameterized queries carefully. (Manual Filter Example).
+Potentially add joins if filtering by related tables (e.g., seller name).
+
+
+Create search results template.
+Outcome: Search/filter functionality using dynamic, manual SQL WHERE clauses.
+
+
+Comments & Likes (Manual SQL) (Responsibility: P)
+Implement Comments: Form on product page. Route logic executes INSERT INTO comments (user_id, product_id, text, timestamp) VALUES (?, ?, ?, ?) SQL query.
+Display Comments: On product page, execute SELECT c.*, u.name as author_name FROM comments c JOIN users u ON c.user_id = u.id WHERE c.product_id = ? ORDER BY c.timestamp DESC (Manual JOIN Example #2).
+Implement Likes: Like button/route executes logic: Check if like exists (SELECT 1 FROM likes WHERE user_id = ? AND product_id = ?). If exists, DELETE FROM likes .... If not, INSERT INTO likes ....
+Display Like Count: On product pages, execute SELECT COUNT(*) FROM likes WHERE product_id = ? (Manual Aggregation Example #1 - COUNT).
+Outcome: Commenting and Liking features using manual SQL. Demonstrates another JOIN and an Aggregation.
+
+
+Reviews & Seller Profiles (Manual SQL) (Responsibility: Sa)
+Implement Review Submission: Form for reviewing a seller. Route logic executes INSERT INTO reviews (reviewer_id, reviewed_user_id, rating, comment, timestamp) VALUES (?, ?, ?, ?, ?) SQL query.
+Enhance User Profile Page:
+Display User's Listings: Execute SELECT ... FROM products WHERE seller_id = ?.
+Display Reviews Received: Execute SELECT r.*, u.name as reviewer_name FROM reviews r JOIN users u ON r.reviewer_id = u.id WHERE r.reviewed_user_id = ?.
+Calculate/Display Average Rating: Execute SELECT AVG(rating) as average_rating FROM reviews WHERE reviewed_user_id = ? (Manual Aggregation Example #2 - AVG).
+
+
+Outcome: Review system and enhanced user profiles using manual SQL. Demonstrates another Aggregation.
+
+
+Implement GROUP BY Query (Responsibility: Sr or Assign based on load)
+Create a simple route/page (e.g., /stats or add to an admin view if ambitious) that demonstrates a GROUP BY query.
+Example: Show product counts per category. Execute SELECT c.name, COUNT(p.id) as product_count FROM categories c LEFT JOIN products p ON c.id = p.category_id GROUP BY c.id, c.name ORDER BY product_count DESC (Manual GROUP BY Example).
+Display these results in a simple table.
+Outcome: Required GROUP BY query implemented and demonstrable.
+
+
+
+Phase 4: Frontend Development & Integration (Duration: ~4-6 days) - Parallel Tasks
+(Largely the same as the original workflow, but data passed to templates comes from dictionaries/lists returned by manual SQL queries, not ORM objects)
+Base Template & Styling (Responsibility: Sr) - Develop base.html, setup static files, integrate CSS framework.
+Templating - Auth & User Pages (Responsibility: P) - Create/refine Jinja2 templates for Login, Register, Profile. Integrate WTForms. Display data from query results.
+Templating - Product & Core Feature Pages (Responsibility: Sa) - Create/refine Jinja2 templates for Homepage, Product Detail, Post/Edit Forms, Search Results, Stats page. Display data from query results (including joins, counts, averages).
+
+Phase 5: Testing, Refinement & Data Seeding (Duration: ~3-5 days) - Collaborative
+Data Seeding (Manual SQL) (Lead: Sr, Support: P, Sa)
+Write a script (Flask CLI command or seed.py) containing multiple INSERT INTO ... statements for each table.
+Use Python's sqlite3 module directly in the script to execute these inserts.
+Ensure at least 10 records per table are created with valid foreign key relationships. Use Faker if desired to generate data for the SQL statements.
+Outcome: Database populated with sufficient sample data via manual inserts.
+
+
+Integration Testing & Debugging (Collaborative - P, Sa, Sr)
+Test all user flows rigorously.
+Crucially, test all SQL queries: Check for correctness, test edge cases (e.g., no results found), and manually inspect queries for potential SQL injection vulnerabilities (ensure parameterized queries are used everywhere user input influences a query).
+Test search/filter combinations thoroughly.
+Test responsive design. Fix bugs.
+Outcome: Stable application, correct SQL execution, mitigated SQL injection risks.
+
+
+Code Review & Refinement (Collaborative - P, Sa, Sr)
+Review Python code and especially the manual SQL queries for clarity, efficiency, and security.
+Ensure all specific requirements are met and easily demonstrable (5+ tables, 10+ records, User/Product CRUD, .edu auth, social features, reviews, search/filter, specific manual SQL query types: 2 JOINs, AGG, FILTER, GROUP BY).
+Add comments where needed, especially for complex SQL.
+Outcome: Improved code quality, verified requirements compliance.
+
+
+
+Phase 6: Documentation & Presentation Prep (Duration: ~2-3 days) - Collaborative
+Finalize Documentation (Lead: Sa, Support: P, Sr)
+Ensure README.md is complete (setup, run instructions, features).
+Gather the Problem Analysis document, ER Diagram, and Normalization Analysis document - these MUST be ready for presentation.
+Prepare snippets/list of the specific, manually written SQL queries that fulfill the requirements (2 JOINs, AGG, FILTER, GROUP BY) to show during the presentation.
+Outcome: All required documentation and presentation materials gathered.
+
+
+Presentation/Demo Preparation (Lead: P, Support: Sa, Sr)
+Outline the 5-7 minute demo:
+Brief intro & Problem Analysis.
+Show ERD & explain Normalization.
+Show key app functionality (Registration, Login, Posting, Browsing, Searching, Liking/Commenting, Reviews).
+Explicitly show the code for the required SQL query types and explain them.
+Brief conclusion.
+
+
+Assign specific speaking parts to each member (P, Sa, Sr) ensuring equal participation.
+Practice the demo flow and timing.
+Outcome: Polished presentation plan ready for delivery.
+
+
+
+This revised workflow directly addresses the constraints and deliverables mentioned in the requirements, particularly the shift to manual SQL. This approach is less common in modern Flask development (which favors ORMs) but is crucial for meeting your specific project guidelines. Good communication will be essential to manage the intricacies of manual SQL handling across the team.
+

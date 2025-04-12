@@ -36,17 +36,17 @@ CREATE TABLE categories (
 
 CREATE TABLE products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    seller_id INTEGER NOT NULL,
-    category_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     description TEXT NOT NULL,
-    price REAL NOT NULL CHECK (price >= 0), -- Use REAL for potential decimal values
-    condition TEXT, -- e.g., 'New', 'Used - Like New', 'Used - Good'
-    post_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'sold', 'removed')),
-    -- image_url TEXT, -- If storing only one primary image URL directly
-    FOREIGN KEY (seller_id) REFERENCES users (id) ON DELETE CASCADE, -- If user deleted, remove their products
-    FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL -- If category deleted, keep product but unlink category
+    price REAL NOT NULL,
+    condition TEXT NOT NULL,
+    image_path TEXT,
+    date_posted TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    category_id INTEGER NOT NULL,
+    seller_id INTEGER NOT NULL,
+    is_sold BOOLEAN NOT NULL DEFAULT 0,
+    FOREIGN KEY (category_id) REFERENCES categories (id),
+    FOREIGN KEY (seller_id) REFERENCES users (id)
 );
 
 CREATE TABLE product_images (
@@ -96,3 +96,15 @@ CREATE INDEX idx_products_category ON products (category_id);
 CREATE INDEX idx_comments_product ON comments (product_id);
 CREATE INDEX idx_reviews_reviewed_user ON reviews (reviewed_user_id);
 CREATE INDEX idx_likes_product ON likes (product_id);
+
+INSERT OR IGNORE INTO categories (name, description) VALUES
+('Textbooks', 'Course textbooks and study materials'),
+('Electronics', 'Computers, phones, calculators and other electronic devices'),
+('Furniture', 'Dorm and apartment furniture'),
+('Clothing', 'Apparel, shoes, and accessories'),
+('School Supplies', 'Notebooks, pens, backpacks and other supplies'),
+('Sports Equipment', 'Athletic gear and equipment'),
+('Musical Instruments', 'Instruments and accessories'),
+('Event Tickets', 'Tickets to campus and local events'),
+('Services', 'Tutoring, repairs, and other services'),
+('Other', 'Miscellaneous items');

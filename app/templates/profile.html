@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{# Title is passed from the route #}
+
+{% block content %}
+  <h1>{{ user.name }}'s Profile</h1>
+  <p><strong>Email:</strong> {{ user.email }}</p>
+  <p><strong>Member Since:</strong> {{ user.join_date.strftime('%Y-%m-%d') if user.join_date else 'N/A' }}</p> {# Format date #}
+  <p><strong>Profile Info:</strong></p>
+  <p>{{ user.profile_info if user.profile_info else 'No information provided.' }}</p>
+
+  {# Add links/buttons for Edit Profile, View Listings, Add Review later #}
+  {# {% if current_user.id == user.id %}
+    <a href="{{ url_for('auth.edit_profile') }}">Edit Profile</a>
+  {% endif %} #}
+
+  <hr>
+  <h2>Listings by {{ user.name }}</h2>
+  {# Loop through user's products here later #}
+  <p>No listings yet.</p>
+
+  <hr>
+  <h2>Reviews for {{ user.name }}</h2>
+   {# Loop through reviews here later #}
+  <p>No reviews yet.</p>
+  {# {% if current_user.id != user.id %}
+    <a href="{{ url_for('???') }}">Leave a Review</a> {# Add review route later #}
+  {# {% endif %} #}
+
+{% endblock %}

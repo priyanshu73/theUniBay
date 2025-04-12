@@ -1,11 +1,67 @@
-from flask import Blueprint, render_template
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Use the title variable passed from the route -->
+    <title>{% block title %}{{ title | default('College Marketplace') }}{% endblock %}</title>
+    <!-- Link to your custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head_extra %}{% endblock %}
+  </head>
+  <body>
 
-# Using Blueprint for better organization, even for simple routes initially
-bp = Blueprint('main', __name__)
+    <nav>
+        <!-- Basic Navigation -->
+        <a href="{{ url_for('main.index') }}">Home</a>
 
-@bp.route('/')
-@bp.route('/index')
-def index():
-    # Later, fetch products from DB using manual SQL via db.py helpers
-    return "<h1>Welcome to the College Marketplace!</h1> (Basic Setup Complete)"
-    # Replace with render_template('index.html') when template exists
+        <!-- Conditional Links based on Login Status -->
+        {% if current_user.is_authenticated %}
+            <!-- Links for logged-in users -->
+            <a href="{{ url_for('main.profile', user_id=current_user.id) }}">My Profile</a>
+            {# Add link to create product page later: <a href="{{ url_for('product.create') }}">Sell Item</a> #}
+            <a href="{{ url_for('auth.logout') }}">Logout</a>
+            <span style="margin-left: 15px;">(Logged in as: {{ current_user.name }})</span>
+        {% else %}
+            <!-- Links for logged-out users -->
+            <a href="{{ url_for('auth.login') }}">Login</a>
+            <a href="{{ url_for('auth.register') }}">Register</a>
+        {% endif %}
+        <!-- Add link for creating product later -->
+        {# Example: <a href="{{ url_for('product.create') }}">Sell Item</a> (requires login) #}
+
+    </nav>
+    <hr>
+
+    <main>
+        <!-- Flash messages (useful for login, form errors, etc.) -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Main Content Block -->
+        <h1>{% block page_header %}{{ title | default('College Marketplace') }}{% endblock %}</h1>
+
+        {% block content %}
+          <!-- Default content if no specific block content is provided by child template -->
+          <p>Welcome to the College Marketplace. Browse items or log in to sell!</p>
+        {% endblock %}
+
+    </main>
+
+    <footer>
+        <hr>
+        <p>© 2025 College Marketplace - Group 15 (Priyanshu, Sanij, Srijan)</p>
+    </footer>
+
+    <!-- Optional: Add JS links here -->
+    {% block scripts %}{% endblock %}
+
+  </body>
+</html>

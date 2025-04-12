@@ -15,11 +15,29 @@
         <!-- Basic Navigation -->
         <a href="{{ url_for('main.index') }}">Home</a>
 
+        <!-- Category dropdown - could be added later -->
+        <!-- <div class="dropdown">
+            <button class="dropbtn">Categories</button>
+            <div class="dropdown-content">
+                {% for category in categories %}
+                    <a href="{{ url_for('product.by_category', category_id=category.id) }}">{{ category.name }}</a>
+                {% endfor %}
+            </div>
+        </div> -->
+
+        <!-- Search form -->
+        <div class="search-container">
+            <form action="{{ url_for('product.search') }}" method="get">
+                <input type="text" placeholder="Search listings..." name="q" required>
+                <button type="submit">Search</button>
+            </form>
+        </div>
+
         <!-- Conditional Links based on Login Status -->
         {% if current_user.is_authenticated %}
             <!-- Links for logged-in users -->
             <a href="{{ url_for('main.profile', user_id=current_user.id) }}">My Profile</a>
-            {# Add link to create product page later: <a href="{{ url_for('product.create') }}">Sell Item</a> #}
+            <a href="{{ url_for('product.create') }}">Sell Item</a>
             <a href="{{ url_for('auth.logout') }}">Logout</a>
             <span style="margin-left: 15px;">(Logged in as: {{ current_user.name }})</span>
         {% else %}
@@ -27,9 +45,6 @@
             <a href="{{ url_for('auth.login') }}">Login</a>
             <a href="{{ url_for('auth.register') }}">Register</a>
         {% endif %}
-        <!-- Add link for creating product later -->
-        {# Example: <a href="{{ url_for('product.create') }}">Sell Item</a> (requires login) #}
-
     </nav>
     <hr>
 

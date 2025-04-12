@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container">
+  <h1>Edit Listing</h1>
+  
+  <form method="POST" enctype="multipart/form-data">
+    {{ form.hidden_tag() }}
+    
+    <div class="form-group">
+      {{ form.title.label }}
+      {{ form.title(class="form-control") }}
+      {% if form.title.errors %}
+        <div class="form-errors">
+          {% for error in form.title.errors %}
+            <span>{{ error }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    
+    <div class="form-group">
+      {{ form.category.label }}
+      {{ form.category(class="form-control") }}
+      {% if form.category.errors %}
+        <div class="form-errors">
+          {% for error in form.category.errors %}
+            <span>{{ error }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    
+    <div class="form-group">
+      {{ form.price.label }}
+      {{ form.price(class="form-control", step="0.01", min="0.01") }}
+      {% if form.price.errors %}
+        <div class="form-errors">
+          {% for error in form.price.errors %}
+            <span>{{ error }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    
+    <div class="form-group">
+      {{ form.condition.label }}
+      {{ form.condition(class="form-control") }}
+      {% if form.condition.errors %}
+        <div class="form-errors">
+          {% for error in form.condition.errors %}
+            <span>{{ error }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    
+    <div class="form-group">
+      {{ form.description.label }}
+      {{ form.description(class="form-control", rows=5) }}
+      {% if form.description.errors %}
+        <div class="form-errors">
+          {% for error in form.description.errors %}
+            <span>{{ error }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    
+    <div class="form-group">
+      {% if product.image_path %}
+        <p>Current Image:</p>
+        <img src="{{ url_for('static', filename=product.image_path) }}" alt="{{ product.title }}" style="max-width: 200px; margin-bottom: 10px;">
+      {% endif %}
+      
+      {{ form.image.label }}
+      {{ form.image(class="form-control-file") }}
+      {% if form.image.errors %}
+        <div class="form-errors">
+          {% for error in form.image.errors %}
+            <span>{{ error }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <small class="form-text text-muted">Upload a new image to replace the current one, or leave blank to keep the existing image.</small>
+    </div>
+    
+    <div class="form-actions">
+      {{ form.submit(class="btn btn-primary", value="Update Listing") }}
+      <a href="{{ url_for('product.view', product_id=product.id) }}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

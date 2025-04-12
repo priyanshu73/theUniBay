@@ -36,6 +36,9 @@ def create_app(config_class=Config):
     from . import auth
     app.register_blueprint(auth.bp) # url_prefix='/auth' is defined in auth.py
 
+    # register product blueprint
+    from app import product
+    app.register_blueprint(product.bp)
     # Register other blueprints (e.g., products) later
 
     print(f"App created with instance path: {app.instance_path}")

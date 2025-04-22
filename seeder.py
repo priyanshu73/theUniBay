@@ -13,23 +13,21 @@
 import sqlite3
 import os
 import random
+import re # Import regular expressions for domain generation
 from datetime import datetime, timedelta
 from faker import Faker
 from werkzeug.security import generate_password_hash
-import uuid # Using uuid for random filenames like in save_image
+import uuid
 
 # --- Configuration ---
-# Assume this script is in the project root directory (THEUNIBAY/)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Correct path based on the image: instance folder in the root, db file named default.sqlite
 DB_PATH = os.path.join(BASE_DIR, 'instance', 'default.sqlite')
 
-NUM_USERS = 15
-NUM_PRODUCTS_PER_USER_RANGE = (1, 5) # Each user lists between 1 and 5 products
-# NUM_IMAGES_PER_PRODUCT_RANGE = (0, 3) # REMOVED - Not using product_images table based on product.py
-NUM_COMMENTS_PER_PRODUCT_RANGE = (0, 5)
-NUM_REVIEWS_PER_USER_RANGE = (0, 4) # Number of reviews *received* by a user
-LIKE_PROBABILITY = 0.3 # Chance any given user likes any given product
+NUM_USERS = 25
+NUM_PRODUCTS_PER_USER_RANGE = (2, 7) # Slightly increased range
+NUM_COMMENTS_PER_PRODUCT_RANGE = (0, 6)
+NUM_REVIEWS_PER_USER_RANGE = (0, 5)
+LIKE_PROBABILITY = 0.35
 
 # --- Initialize Faker ---
 fake = Faker()
@@ -46,8 +44,8 @@ def get_db_connection():
         exit()
     try:
         conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row # Optional: access columns by name
-        conn.execute("PRAGMA foreign_keys = ON;") # Enforce foreign keys
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON;")
         print(f"Database connection successful to {DB_PATH}.")
         return conn
     except sqlite3.Error as e:
@@ -64,34 +62,73 @@ def get_existing_ids(conn, table_name):
         print(f"Error fetching IDs from {table_name}: {e}")
         return []
 
+# **NEW Helper Function: Generate Domain from Campus Name**
+def generate_domain(campus_name):
+    """Generates a plausible .edu domain from a campus name."""
+    name = campus_name.lower()
+    # Remove common prefixes/suffixes and articles
+    name = re.sub(r'(university of|the|institute of technology|state university|university$| at | institute$)', '', name).strip()
+    # Handle specific known cases or abbreviations if needed
+    if 'harvard' in name: return 'harvard.edu'
+    if 'stanford' in name: return 'stanford.edu'
+    if 'texas' in name and 'austin' in name: return 'utexas.edu' # UT Austin specific
+    if 'mit' in name or 'massachusetts' in name: return 'mit.edu'
+    if 'new york' in name or 'nyu' in name: return 'nyu.edu'
+    if 'southern california' in name or 'usc' in name: return 'usc.edu'
+    if 'michigan' in name and 'ann arbor' in name: return 'umich.edu' # UMich specific
+    if 'arizona state' in name or 'asu' in name: return 'asu.edu'
+    if 'colorado' in name and 'boulder' in name: return 'colorado.edu' # CU Boulder specific
+
+    # General approach: remove spaces, take first part if long, add .edu
+    parts = re.split(r'[ ,-]+', name)
+    if len(parts) > 1 and len(parts[0]) > 3:
+        domain_base = parts[0]
+    else:
+        domain_base = "".join(parts)
+
+    # Limit length slightly
+    domain_base = domain_base[:15]
+
+    return f"{domain_base}.edu"
+
+
 # --- Seeding Functions ---
 
 def seed_campuses(conn):
-    """Seeds the campuses table."""
+    """Seeds the campuses table and returns an ID-to-Name map."""
     print("Seeding campuses...")
     campuses_data = [
-        ('Main Campus', fake.city(), fake.state_abbr()),
-        ('North Campus', fake.city(), fake.state_abbr()),
-        ('West Campus', fake.city(), fake.state_abbr()),
-        ('Online Division', 'Virtual', 'NA'),
+        ('Harvard University', 'Cambridge', 'MA'),
+        ('Stanford University', 'Stanford', 'CA'),
+        ('University of Texas at Austin', 'Austin', 'TX'),
+        ('University of Washington', 'Seattle', 'WA'),
+        ('New York University', 'New York', 'NY'),
+        ('University of Florida', 'Gainesville', 'FL'),
+        ('Ohio State University', 'Columbus', 'OH'),
+        ('University of Michigan', 'Ann Arbor', 'MI'),
+        ('Georgia Institute of Technology', 'Atlanta', 'GA'),
+        ('University of Southern California', 'Los Angeles', 'CA'),
+        ('Arizona State University', 'Tempe', 'AZ'),
+        ('University of Colorado Boulder', 'Boulder', 'CO')
     ]
+    campus_map = {}
     try:
         cursor = conn.cursor()
-        # Use INSERT OR IGNORE to avoid errors if campuses already exist
         cursor.executemany("INSERT OR IGNORE INTO campuses (name, city, state) VALUES (?, ?, ?)", campuses_data)
         conn.commit()
-        print(f"Campuses seeded/updated.")
-        return get_existing_ids(conn, 'campuses')
+        print(f"Campuses seeded/updated. ({len(campuses_data)} records)")
+        # Fetch the inserted/existing campuses to build the map
+        cursor.execute("SELECT id, name FROM campuses")
+        campus_map = {row['id']: row['name'] for row in cursor.fetchall()}
+        return campus_map # **RETURN MAP {id: name}**
     except sqlite3.Error as e:
         print(f"Error seeding campuses: {e}")
         conn.rollback()
-        return []
+        return {}
 
 def seed_categories(conn):
-    """Ensures categories are present and gets their IDs."""
+    """Ensures categories are present and returns an ID-to-Name map."""
     print("Verifying/Seeding categories...")
-    # Categories might already be present from schema.sql's INSERT OR IGNORE.
-    # Running it here ensures they exist if schema didn't have it or if run independently.
     categories_data = [
         ('Textbooks', 'Course textbooks and study materials'),
         ('Electronics', 'Computers, phones, calculators and other electronic devices'),
@@ -104,41 +141,67 @@ def seed_categories(conn):
         ('Services', 'Tutoring, repairs, and other services'),
         ('Other', 'Miscellaneous items')
     ]
+    category_map = {}
     try:
         cursor = conn.cursor()
         cursor.executemany("INSERT OR IGNORE INTO categories (name, description) VALUES (?, ?)", categories_data)
         conn.commit()
         print("Categories verified/seeded.")
-        return get_existing_ids(conn, 'categories')
+        cursor.execute("SELECT id, name FROM categories")
+        category_map = {row['id']: row['name'] for row in cursor.fetchall()}
+        return category_map
     except sqlite3.Error as e:
         print(f"Error verifying/seeding categories: {e}")
         conn.rollback()
+        return {}
+
+def seed_users(conn, num_users, campus_map): # Takes campus_map now
+    """Seeds users with campus-specific .edu emails."""
+    print(f"Seeding {num_users} users...")
+    if not campus_map:
+        print("Warning: Cannot generate campus-specific emails without campus data.")
         return []
 
-def seed_users(conn, num_users, campus_ids):
-    """Seeds the users table."""
-    print(f"Seeding {num_users} users...")
+    campus_ids = list(campus_map.keys())
     users_data = []
+    generated_emails = set() # Track emails to ensure uniqueness if Faker misses
+
     for i in range(num_users):
         name = fake.name()
-        # Create predictable emails for first few users for easier testing/login
-        if i == 0:
-            email = 'user1@test.edu'
-        elif i == 1:
-             email = 'user2@test.edu'
-        else:
-            email = fake.unique.email()
-            # Basic attempt at .edu - replace with more robust logic if needed
-            if '@' in email and not email.endswith(('.edu', '.org', '.com')): # Allow common domains too
-                 base_email = email.split('@')[0]
-                 email = f"{base_email}@fake-uni.edu" # Use a fake edu domain
-
-        password = 'password' # Use a common password for seeded data
+        password = 'password'
         hashed_password = generate_password_hash(password)
         join_date = fake.date_time_between(start_date='-2y', end_date='now')
-        profile_info = fake.paragraph(nb_sentences=3)
-        # Assign a random campus ID if campuses exist
-        assigned_campus_id = random.choice(campus_ids) if campus_ids else None
+        major = fake.random_element(elements=('Computer Science', 'Business Admin', 'Psychology', 'Engineering', 'Biology', 'Communications', 'Art History', 'Economics', 'Nursing'))
+        year = fake.random_element(elements=('Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad Student'))
+        profile_info = f"{year} studying {major}. Looking to buy/sell {fake.random_element(elements=('textbooks', 'dorm stuff', 'electronics', 'clothing'))}. {fake.sentence(nb_words=random.randint(4, 8))}"
+
+        assigned_campus_id = random.choice(campus_ids)
+        campus_name = campus_map.get(assigned_campus_id, "Unknown Campus")
+
+        # **UPDATED: Generate campus-specific .edu email**
+        domain = generate_domain(campus_name)
+        username_base = fake.user_name()
+        email = f"{username_base}@{domain}"
+
+        # Override for first two users for easy testing, using their assigned campus domain
+        if i == 0:
+            username_base = 'user1'
+            email = f"{username_base}@{domain}"
+        elif i == 1:
+            username_base = 'user2'
+            email = f"{username_base}@{domain}"
+
+        # Ensure uniqueness (simple retry mechanism)
+        retry_count = 0
+        while email in generated_emails and retry_count < 5:
+            username_base = fake.user_name() + str(random.randint(1,99))
+            email = f"{username_base}@{domain}"
+            retry_count += 1
+        if email in generated_emails: # Still duplicate after retries? Skip user.
+             print(f"Warning: Could not generate unique email for domain {domain}. Skipping user.")
+             continue
+
+        generated_emails.add(email)
         users_data.append((name, email, hashed_password, join_date, profile_info, assigned_campus_id))
 
     try:
@@ -148,14 +211,13 @@ def seed_users(conn, num_users, campus_ids):
             VALUES (?, ?, ?, ?, ?, ?)
         """, users_data)
         conn.commit()
-        print(f"Seeded {num_users} users. Default password for all is 'password'. Test emails: user1@test.edu, user2@test.edu")
+        print(f"Seeded {len(users_data)} users. Default password: 'password'. Check DB for test user emails.")
         return get_existing_ids(conn, 'users')
     except sqlite3.Error as e:
-        # Handle unique constraint error gracefully if emails collide (rare with unique)
+        # This uniqueness check might be redundant now but kept as safety
         if "UNIQUE constraint failed: users.email" in str(e):
-             print(f"Warning: Skipped duplicate email during seeding: {e}")
-             # Still try to fetch IDs that were inserted before the error
-             conn.rollback() # Rollback the failed insert
+             print(f"Warning: Skipped duplicate email during seeding (DB constraint): {e}")
+             conn.rollback()
              return get_existing_ids(conn, 'users')
         else:
             print(f"Error seeding users: {e}")
@@ -163,35 +225,108 @@ def seed_users(conn, num_users, campus_ids):
             return []
 
 
-def seed_products(conn, user_ids, category_ids, num_products_range):
-    """Seeds the products table based on the project schema and product.py."""
+def seed_products(conn, user_ids, category_map, num_products_range):
+    """Seeds products with specific generation logic for EACH category."""
     print("Seeding products...")
-    if not user_ids or not category_ids:
+    if not user_ids or not category_map:
         print("Cannot seed products without users and categories.")
         return []
 
+    category_ids = list(category_map.keys())
     products_data = []
-    product_id_map = {} # Store seller_id for reviews later: {product_id: seller_id}
+    product_id_map = {}
 
     for seller_id in user_ids:
         num_products = random.randint(num_products_range[0], num_products_range[1])
         for _ in range(num_products):
-            title = fake.bs().title() # Generate more product-like titles
-            description = fake.paragraph(nb_sentences=5)
+            category_id = random.choice(category_ids)
+            category_name = category_map.get(category_id, 'Other') # Default to 'Other' if ID somehow missing
+
             price = round(random.uniform(5.0, 500.0), 2)
             condition = random.choice(['New', 'Used - Like New', 'Used - Good', 'Used - Fair', 'Used - Poor'])
-
-            # **MODIFIED**: Generate placeholder image path consistent with save_image() format
-            # We are just creating path strings, not actual files.
-            # Use a simple placeholder name structure for predictability in seeding context.
-            placeholder_filename = f"placeholder_{uuid.uuid4().hex[:8]}.jpg" # Example: placeholder_a1b2c3d4.jpg
-            image_path = f"product_images/{placeholder_filename}" # Relative path like in save_image
-
             date_posted = fake.date_time_between(start_date='-1y', end_date='now')
-            category_id = random.choice(category_ids)
-            is_sold = fake.boolean(chance_of_getting_true=15) # 15% chance sold
+            is_sold = fake.boolean(chance_of_getting_true=15)
+            placeholder_filename = f"placeholder_{uuid.uuid4().hex[:8]}.jpg"
+            image_path = f"product_images/{placeholder_filename}"
 
-            # Match the columns in the second schema provided
+            # **UPDATED: Expanded if/elif for ALL categories**
+            title = f"{condition} {category_name} Item" # Initial default
+            description = f"Selling a {category_name.lower()}. Condition: {condition}. Asking ${price}." # Initial default
+
+            if category_name == 'Textbooks':
+                course = fake.random_element(elements=('CS 101', 'MATH 210', 'BIO 150', 'ENG 102', 'HIST 205', 'CHEM 111', 'PSYC 100'))
+                adj = fake.random_element(elements=('Gently Used', 'Like New', 'Acceptable Condition', 'Required'))
+                title = f"{adj} {course} Textbook ({random.randint(3, 9)}th Ed.)"
+                desc_detail = fake.random_element(elements=('Some highlighting.', 'No writing inside.', 'Minimal wear on cover.', 'Access code likely used.', 'Needed for Prof. Smith\'s class.'))
+                description = f"Textbook for {course}. {desc_detail} Condition: {condition}. ISBN: {fake.isbn13()}. Asking ${price} OBO."
+                price = round(random.uniform(15.0, 150.0), 2) # Adjust price range
+            elif category_name == 'Electronics':
+                item = fake.random_element(elements=('Laptop', 'Monitor', 'Headphones', 'Keyboard', 'Mouse', 'Calculator', 'Webcam', 'Tablet', 'Charger', 'Speaker'))
+                brand = fake.random_element(elements=('Dell', 'HP', 'Logitech', 'Sony', 'Apple', 'Samsung', 'TI', 'Anker', 'Microsoft', 'Bose'))
+                title = f"{condition} {brand} {item}"
+                desc_detail = fake.random_element(elements=('Works perfectly.', 'Used for about a year.', 'Minor cosmetic scratches.', 'Includes original charger/cable.', 'Selling because I upgraded.'))
+                description = f"Selling my {brand} {item}. {desc_detail} Condition: {condition}. Model: {fake.word().upper()}-{random.randint(100, 999)}. Price: ${price}."
+                price = round(random.uniform(10.0, 600.0), 2) # Adjust price range
+            elif category_name == 'Furniture':
+                item = fake.random_element(elements=('Desk Lamp', 'Mini Fridge', 'Bookshelf', 'Desk Chair', 'Futon Couch', 'Bedside Table', 'Floor Lamp', 'Storage Ottoman', 'Mirror'))
+                adj = fake.random_element(elements=('Compact', 'Sturdy', 'IKEA', 'Used', 'Foldable', 'Adjustable'))
+                title = f"{adj} {item} - {condition}"
+                desc_detail = fake.random_element(elements=('Perfect for dorm rooms.', 'Used for one semester.', 'Need gone ASAP - moving out.', 'Great for small spaces.', 'Smoke-free home.'))
+                description = f"{item} for sale. {desc_detail} Condition: {condition}. Approx Dimensions: {random.randint(10, 40)}x{random.randint(10, 30)} inches. Asking ${price}."
+                price = round(random.uniform(10.0, 200.0), 2) # Adjust price range
+            elif category_name == 'Clothing':
+                item = fake.random_element(elements=('Hoodie', 'Jacket', 'Sweater', 'T-Shirt', 'Jeans', 'Sneakers', 'Boots', 'Backpack', 'Dress Shirt', 'Shorts'))
+                brand = fake.random_element(elements=('Nike', 'Adidas', 'North Face', 'Champion', 'University Brand', 'Levis', 'Vans', 'Patagonia', 'H&M', 'Zara'))
+                size = fake.random_element(elements=('XS', 'S', 'M', 'L', 'XL', 'OS', 'W 7', 'M 10', 'Size 32', 'Size 8'))
+                title = f"{brand} {item} - Size {size} ({condition})"
+                desc_detail = fake.random_element(elements=('Worn only a few times.', 'Doesn\'t fit me anymore.', 'Very comfortable.', 'Great condition.', 'Official campus apparel.'))
+                description = f"{brand} {item}, size {size}. {desc_detail} Condition: {condition}. Asking ${price}."
+                price = round(random.uniform(5.0, 80.0), 2) # Adjust price range
+            elif category_name == 'School Supplies':
+                 item = fake.random_element(elements=('Binder', 'Notebook Pack', 'Pen Set', 'Highlighters', 'Backpack', 'Planner', 'Index Cards', 'Folder Assortment'))
+                 brand = fake.random_element(elements=('Five Star', 'Mead', 'Pilot', 'Sharpie', 'Jansport', 'Moleskine', 'Oxford'))
+                 title = f"{brand} {item} - {condition}"
+                 desc_detail = fake.random_element(elements=('Barely used.', 'Left over from last semester.', 'Bought too many.', 'Great for organizing notes.'))
+                 description = f"Selling {item}. {desc_detail} Condition: {condition}. Asking ${price}."
+                 price = round(random.uniform(2.0, 30.0), 2) # Adjust price range
+            elif category_name == 'Sports Equipment':
+                 item = fake.random_element(elements=('Basketball', 'Soccer Ball', 'Football', 'Tennis Racket', 'Yoga Mat', 'Dumbbell Set', 'Frisbee', 'Bike Helmet'))
+                 brand = fake.random_element(elements=('Spalding', 'Wilson', 'Nike', 'Adidas', 'Gaiam', 'CAP Barbell', 'Discraft', 'Giro'))
+                 title = f"{brand} {item} ({condition})"
+                 desc_detail = fake.random_element(elements=('Used for intramurals.', 'Good condition, just don\'t use it.', 'Perfect for pickup games.', 'Great for staying active.'))
+                 description = f"Selling {brand} {item}. {desc_detail} Condition: {condition}. Asking ${price}."
+                 price = round(random.uniform(5.0, 75.0), 2) # Adjust price range
+            elif category_name == 'Musical Instruments':
+                 item = fake.random_element(elements=('Acoustic Guitar', 'Keyboard', 'Ukulele', 'Practice Amp', 'Music Stand', 'Cajon Drum', 'Violin (Student)'))
+                 brand = fake.random_element(elements=('Fender', 'Yamaha', 'Casio', 'Lanikai', 'Hercules', 'Meinl', 'Cecilio'))
+                 title = f"{brand} {item} - {condition}"
+                 desc_detail = fake.random_element(elements=('Great beginner instrument.', 'Includes case/accessories.', 'Selling due to lack of use.', 'Sounds good.'))
+                 description = f"{brand} {item} for sale. {desc_detail} Condition: {condition}. Asking ${price}."
+                 price = round(random.uniform(20.0, 300.0), 2) # Adjust price range
+            elif category_name == 'Event Tickets':
+                 event = fake.random_element(elements=('Football Game', 'Basketball Game', 'Concert', 'Theater Performance', 'Guest Lecture', 'Campus Fest'))
+                 artist_team = fake.random_element(elements=('Homecoming Game', 'Rivalry Matchup', fake.name() + ' Band', 'Spring Musical', 'vs State', 'Famous Speaker Series'))
+                 title = f"Ticket for {artist_team} {event} - {fake.date_this_month(after_today=True).strftime('%b %d')}"
+                 desc_detail = fake.random_element(elements=('Can\'t make it anymore.', 'Selling below face value!', 'Student section ticket.', 'Great seats!', 'Mobile transfer available.'))
+                 description = f"Selling one ticket for the {artist_team} {event} on {title.split('- ')[-1]}. {desc_detail} Asking ${price}."
+                 price = round(random.uniform(10.0, 100.0), 2) # Adjust price range
+                 condition = 'N/A' # Condition not applicable
+            elif category_name == 'Services':
+                 service = fake.random_element(elements=('Tutoring', 'Moving Help', 'Computer Repair', 'Graphic Design', 'Photography Session', 'Cleaning Service'))
+                 subject_area = fake.random_element(elements=('Math/Stats', 'Writing/Editing', 'Science', 'Programming', 'General Help', 'Portraits', 'Events'))
+                 title = f"{service} Available - {subject_area}"
+                 desc_detail = fake.random_element(elements=('Experienced tutor.', 'Strong student available to help move heavy items.', 'Affordable rates.', 'Quick turnaround.', 'Flexible hours.'))
+                 description = f"Offering {service} for {subject_area.lower()}. {desc_detail} Rate: ${price}/hr (or flat fee). Contact me for details."
+                 price = round(random.uniform(15.0, 50.0), 2) # Price likely per hour
+                 condition = 'N/A' # Condition not applicable
+            elif category_name == 'Other':
+                 item = fake.random_element(elements=('Wall Tapestry', 'Video Game', 'Board Game', 'Plant', 'Art Print', 'Kitchenware Set', 'Bike Lock'))
+                 adj = fake.random_element(elements=('Cool', 'Fun', 'Unused', 'Quirky', 'Handmade', 'Durable'))
+                 title = f"{adj} {item} - {condition}"
+                 desc_detail = fake.random_element(elements=('Random item for sale.', 'Clearing out my room.', 'Maybe someone needs this?', 'Make an offer!'))
+                 description = f"Selling: {item}. {desc_detail} Condition: {condition}. Asking ${price}."
+                 price = round(random.uniform(1.0, 50.0), 2) # Adjust price range
+
             products_data.append((
                 title, description, price, condition, image_path,
                 date_posted, category_id, seller_id, is_sold
@@ -201,7 +336,6 @@ def seed_products(conn, user_ids, category_ids, num_products_range):
         cursor = conn.cursor()
         inserted_product_ids = []
         for product in products_data:
-            # Match the columns in the second schema provided
             cursor.execute("""
                 INSERT INTO products (title, description, price, condition, image_path,
                                       date_posted, category_id, seller_id, is_sold)
@@ -209,36 +343,48 @@ def seed_products(conn, user_ids, category_ids, num_products_range):
             """, product)
             last_id = cursor.lastrowid
             inserted_product_ids.append(last_id)
-            product_id_map[last_id] = product[7] # Store product_id -> seller_id mapping (seller_id is 8th element, index 7)
+            product_id_map[last_id] = product[7]
 
         conn.commit()
         print(f"Seeded {len(inserted_product_ids)} products.")
-        return product_id_map # Return the map instead of just IDs
+        return product_id_map
     except sqlite3.Error as e:
         print(f"Error seeding products: {e}")
         conn.rollback()
         return {}
 
-# REMOVED seed_product_images function as product.py doesn't use the product_images table
 
+# (seed_comments, seed_reviews, seed_likes remain the same as the previous 'relevant text' version)
+# ... copy seed_comments, seed_reviews, seed_likes functions from the previous good version ...
 def seed_comments(conn, user_ids, product_ids, num_comments_range):
-    """Seeds the comments table."""
+    """Seeds comments with more relevant text."""
     if not user_ids or not product_ids:
         print("Cannot seed comments without users and products.")
         return
     print("Seeding comments...")
     comments_data = []
-    # Select a subset of products to receive comments
     products_to_comment = random.sample(product_ids, k=min(len(product_ids), int(len(user_ids) * 1.5)))
 
     for product_id in products_to_comment:
         num_comments = random.randint(num_comments_range[0], num_comments_range[1])
-        possible_commenters = list(user_ids) # Can comment on own product in this seed
+        possible_commenters = list(user_ids)
         if not possible_commenters: continue
 
         for _ in range(num_comments):
              user_id = random.choice(possible_commenters)
-             text = fake.sentence(nb_words=random.randint(5, 25))
+             text_options = [
+                "Is this still available?",
+                "Interested! Can we meet near the library?",
+                f"What's the condition like? ({random.choice(['Any scratches?', 'Any issues?', 'Used much?'])})",
+                f"Could you do ${round(random.uniform(5.0, 50.0), 2):.2f}?", # Generic lower offer
+                "Is the price firm?",
+                "Still for sale?",
+                "I'll take it! Sent you a PM.",
+                "Can I see it sometime this week?",
+                f"Is this the edition required for {fake.random_element(elements=('Dr. Evans', 'Prof. Lee', 'the Bio dept'))}?",
+                "Any chance you'd trade for [my item]?",
+             ]
+             text = random.choice(text_options)
              timestamp = fake.date_time_between(start_date='-6m', end_date='now')
              comments_data.append((user_id, product_id, text, timestamp))
 
@@ -253,47 +399,61 @@ def seed_comments(conn, user_ids, product_ids, num_comments_range):
             VALUES (?, ?, ?, ?)
         """, comments_data)
         conn.commit()
-        print(f"Seeded {len(comments_data)} comments.")
+        cursor.execute("SELECT COUNT(*) FROM comments")
+        comment_count = cursor.fetchone()[0]
+        print(f"Seeded comments. Total comments in DB: {comment_count}. (Attempted {len(comments_data)})")
+
     except sqlite3.Error as e:
         print(f"Error seeding comments: {e}")
         conn.rollback()
 
 def seed_reviews(conn, user_ids, product_id_map, num_reviews_range):
-    """Seeds the reviews table."""
+    """Seeds reviews with more relevant comments based on rating."""
     if not user_ids or len(user_ids) < 2 or not product_id_map:
         print("Cannot seed reviews without at least 2 users and products.")
         return
     print("Seeding reviews...")
     reviews_data = []
-
-    # Determine potential sellers (users who have listed products)
     sellers = list(set(product_id_map.values()))
     potential_reviewers = list(user_ids)
 
     for reviewed_user_id in sellers:
         num_reviews = random.randint(num_reviews_range[0], num_reviews_range[1])
-        # Filter out the reviewed user from potential reviewers
         possible_reviewers = [r for r in potential_reviewers if r != reviewed_user_id]
         if not possible_reviewers: continue
 
-        # Find products sold by this user to potentially link reviews
         products_by_seller = [pid for pid, sid in product_id_map.items() if sid == reviewed_user_id]
-
-        # Limit number of reviews per seller based on available unique reviewers
         num_reviews = min(num_reviews, len(possible_reviewers))
-
         reviewers_for_this_seller = random.sample(possible_reviewers, k=num_reviews)
 
         for reviewer_id in reviewers_for_this_seller:
-
-            # Optionally link to a product sold by the reviewed user
-            product_id = random.choice(products_by_seller) if products_by_seller and random.random() < 0.7 else None # 70% chance to link
-
+            product_id = random.choice(products_by_seller) if products_by_seller and random.random() < 0.7 else None
             rating = random.randint(1, 5)
-            comment = fake.paragraph(nb_sentences=2) if random.random() < 0.8 else None # 80% chance of comment text
             timestamp = fake.date_time_between(start_date='-6m', end_date='now')
+            comment = None
+            if random.random() < 0.8:
+                comment_options_positive = [
+                    "Great seller! Item was exactly as described. Easy pickup.",
+                    "Smooth transaction, very friendly and responsive.",
+                    "Quick meet up. Item in perfect condition. Highly recommend!",
+                    "Got a great deal on the textbook, super happy. Thanks!",
+                    "Excellent communication, would buy from again!",
+                ]
+                comment_options_neutral = [
+                    "Item was okay, transaction was fine.",
+                    "Met up eventually. Item as described.",
+                    "Standard transaction, no issues.",
+                ]
+                comment_options_negative = [
+                    "Item wasn't quite in the condition described. Disappointed.",
+                    "Seller was late and hard to reach.",
+                    "Difficult to coordinate pickup. Wouldn't recommend.",
+                    "Item had undisclosed damage.",
+                ]
+                if rating >= 4: comment = random.choice(comment_options_positive)
+                elif rating == 3: comment = random.choice(comment_options_neutral)
+                else: comment = random.choice(comment_options_negative)
 
-            # Ensure reviewer is not the same as reviewed user (already handled by filtering)
             if reviewer_id != reviewed_user_id:
                 reviews_data.append((reviewer_id, reviewed_user_id, product_id, rating, comment, timestamp))
 
@@ -308,16 +468,16 @@ def seed_reviews(conn, user_ids, product_id_map, num_reviews_range):
             VALUES (?, ?, ?, ?, ?, ?)
         """, reviews_data)
         conn.commit()
-        print(f"Seeded {len(reviews_data)} reviews.")
+        cursor.execute("SELECT COUNT(*) FROM reviews")
+        review_count = cursor.fetchone()[0]
+        print(f"Seeded reviews. Total reviews in DB: {review_count}. (Attempted {len(reviews_data)})")
     except sqlite3.Error as e:
-        # Ignore unique constraint errors if the same review is attempted twice (unlikely with current logic)
         if "UNIQUE constraint failed" in str(e):
              print(f"Skipped duplicate review: {e}")
-             conn.rollback() # Needs rollback even if ignoring
+             conn.rollback()
         else:
              print(f"Error seeding reviews: {e}")
              conn.rollback()
-
 
 def seed_likes(conn, user_ids, product_ids, like_probability):
     """Seeds the likes table."""
@@ -327,8 +487,7 @@ def seed_likes(conn, user_ids, product_ids, like_probability):
     print("Seeding likes...")
     likes_data = []
     for user_id in user_ids:
-        # Each user likes a random subset of products
-        num_likes = int(len(product_ids) * like_probability * (random.random() + 0.5)) # Vary probability slightly
+        num_likes = int(len(product_ids) * like_probability * (random.random() + 0.5))
         products_liked_by_user = random.sample(product_ids, k=min(num_likes, len(product_ids)))
         for product_id in products_liked_by_user:
                 timestamp = fake.date_time_between(start_date='-6m', end_date='now')
@@ -340,16 +499,14 @@ def seed_likes(conn, user_ids, product_ids, like_probability):
 
     try:
         cursor = conn.cursor()
-        # Use INSERT OR IGNORE because the primary key (user_id, product_id) prevents duplicates
         cursor.executemany("""
             INSERT OR IGNORE INTO likes (user_id, product_id, "timestamp")
             VALUES (?, ?, ?)
         """, likes_data)
         conn.commit()
-        # Get actual count of inserted rows after ignoring duplicates
-        # This is an approximation as total_changes is cumulative
-        changes = conn.total_changes
-        print(f"Seeded likes (duplicates ignored). Approx {len(likes_data)} like attempts made.")
+        cursor.execute("SELECT COUNT(*) FROM likes")
+        like_count = cursor.fetchone()[0]
+        print(f"Seeded likes. Total likes in DB: {like_count}. (Attempted {len(likes_data)}, duplicates ignored)")
     except sqlite3.Error as e:
         print(f"Error seeding likes: {e}")
         conn.rollback()
@@ -357,39 +514,39 @@ def seed_likes(conn, user_ids, product_ids, like_probability):
 # --- Main Execution ---
 if __name__ == "__main__":
     conn = get_db_connection()
-    if not conn:
-        exit()
-
+    if not conn: exit()
     start_time = datetime.now()
     print(f"\n--- Starting Database Seeding ({start_time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
-
     try:
-        # Seed in order of dependency
-        campus_ids = seed_campuses(conn)
-        category_ids = seed_categories(conn) # Get IDs after ensuring they exist
-        user_ids = seed_users(conn, NUM_USERS, campus_ids)
-
-        # Seed products and get a map of {product_id: seller_id}
-        product_id_map = seed_products(conn, user_ids, category_ids, NUM_PRODUCTS_PER_USER_RANGE)
-        product_ids = list(product_id_map.keys()) # Get list of product IDs
-
+        # **MODIFIED Call Order/Args**
+        campus_map = seed_campuses(conn) # Returns {id: name} map
+        category_map = seed_categories(conn) # Returns {id: name} map
+        user_ids = seed_users(conn, NUM_USERS, campus_map) # Pass campus_map
+        product_id_map = seed_products(conn, user_ids, category_map, NUM_PRODUCTS_PER_USER_RANGE) # Pass category_map
+        product_ids = list(product_id_map.keys())
         if product_ids:
-             # REMOVED call to seed_product_images as it's not used in product.py
              seed_comments(conn, user_ids, product_ids, NUM_COMMENTS_PER_PRODUCT_RANGE)
              seed_likes(conn, user_ids, product_ids, LIKE_PROBABILITY)
-
-        # Seed reviews using the product_id_map to know who sold what
         seed_reviews(conn, user_ids, product_id_map, NUM_REVIEWS_PER_USER_RANGE)
-
         end_time = datetime.now()
         print(f"\n--- Database seeding completed successfully ({end_time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
         print(f"--- Total time: {end_time - start_time} ---")
+        print("\n--- Final Record Counts ---")
+        tables_to_check = ['campuses', 'categories', 'users', 'products', 'comments', 'reviews', 'likes']
+        cursor = conn.cursor()
+        for table in tables_to_check:
+            try:
+                cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                count = cursor.fetchone()[0]
+                print(f"- {table}: {count}")
+            except sqlite3.Error as e:
+                 print(f"- {table}: Error counting - {e}")
 
     except Exception as e:
         print(f"\n--- An error occurred during seeding: {e} ---")
         import traceback
-        traceback.print_exc() # Print full traceback for debugging
-        conn.rollback() # Roll back any partial changes on general error
+        traceback.print_exc()
+        conn.rollback()
     finally:
         if conn:
             conn.close()

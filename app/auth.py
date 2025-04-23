@@ -202,3 +202,22 @@ def leave_review(reviewed_user_id):
         print(f"DB Error on review submission: {e}")
 
     return redirect(url_for('main.profile', user_id=reviewed_user_id, _anchor='reviews'))
+
+@bp.route('/delete_profile', methods=['POST'])
+@login_required
+def delete_profile():
+    db = get_db()
+    try:
+        # Delete the user from the database
+        db.execute('DELETE FROM users WHERE id = ?', (current_user.id,))
+        db.commit()
+
+        # Log the user out after deletion
+        logout_user()
+        flash('Your profile has been deleted successfully.', 'success')
+        return redirect(url_for('main.index'))
+    except sqlite3.Error as e:
+        db.rollback()
+        flash(f'An error occurred while deleting your profile: {e}', 'danger')
+        print(f"DB Error on profile deletion: {e}")
+        return redirect(url_for('main.profile', user_id=current_user.id))

@@ -47,6 +47,7 @@ CREATE TABLE products (
     is_sold BOOLEAN NOT NULL DEFAULT 0,
     FOREIGN KEY (category_id) REFERENCES categories (id),
     FOREIGN KEY (seller_id) REFERENCES users (id)
+    FOREIGN KEY (seller_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
 CREATE TABLE product_images (

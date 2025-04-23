@@ -1,29 +1,113 @@
 {% extends "base.html" %}
-{# Title is passed from the route #}
+{# Assuming 'title' and 'user' object are passed from the route #}
+{% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-  <h1>{{ user.name }}'s Profile</h1>
-  <p><strong>Email:</strong> {{ user.email }}</p>
-  <p><strong>Member Since:</strong> {{ user.join_date.strftime('%Y-%m-%d') if user.join_date else 'N/A' }}</p> {# Format date #}
-  <p><strong>Profile Info:</strong></p>
-  <p>{{ user.profile_info if user.profile_info else 'No information provided.' }}</p>
+<div class="profile-page-container">
 
-  {# Add links/buttons for Edit Profile, View Listings, Add Review later #}
-  {# {% if current_user.id == user.id %}
-    <a href="{{ url_for('auth.edit_profile') }}">Edit Profile</a>
-  {% endif %} #}
+  {# --- Profile Header & Basic Info Card --- #}
+  <div class="profile-card profile-header-card">
+    <div class="profile-avatar-placeholder">
+      {# Placeholder for an avatar image. Showing first initial for now. #}
+      <span>{{ user.name[0]|upper if user.name else '?' }}</span>
+      {# Example: <img src="{{ url_for('static', filename=user.avatar_path) }}" alt="{{ user.name }}'s Avatar"> #}
+    </div>
+    <div class="profile-header-info">
+      <h1>{{ user.name }}</h1>
+      <p class="profile-meta">
+        <span class="email-info">
+          <i class="icon icon-email"></i> {# Placeholder for icon #}
+          {{ user.email }}
+        </span>
+        <span class="join-date-info">
+          <i class="icon icon-calendar"></i> {# Placeholder for icon #}
+          Member Since: {{ user.join_date.strftime('%B %d, %Y') if user.join_date else 'N/A' }} {# Nicer format #}
+        </span>
+      </p>
+      {# Edit profile button only shown to the profile owner #}
+      {% if current_user.is_authenticated and current_user.id == user.id %}
+        <div class="profile-actions">
+          <a href="{{ url_for('auth.edit_profile') }}" class="btn btn-secondary btn-sm">Edit Profile</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
 
-  <hr>
-  <h2>Listings by {{ user.name }}</h2>
-  {# Loop through user's products here later #}
-  <p>No listings yet.</p>
+  {# --- Profile Bio/Info Card (Optional) --- #}
+  {% if user.profile_info %}
+    <div class="profile-card profile-bio-card">
+      <h2>About</h2>
+      <p>{{ user.profile_info }}</p>
+    </div>
+  {% endif %}
 
-  <hr>
-  <h2>Reviews for {{ user.name }}</h2>
-   {# Loop through reviews here later #}
-  <p>No reviews yet.</p>
-  {# {% if current_user.id != user.id %}
-    <a href="{{ url_for('???') }}">Leave a Review</a> {# Add review route later #}
-  {# {% endif %} #}
+  {# --- User's Listings Section --- #}
+  <div class="profile-card profile-listings-section">
+    <h2>Listings by {{ user.name }}</h2>
+    {% if user_products %}
+      <div class="product-list profile-product-list">
+        {% for product in user_products %}
+          <div class="product-item profile-product-item">
+            <h3 class="product-item-title">
+              <a href="{{ url_for('product.product_view', product_id=product.id) }}">{{ product.title }}</a>
+            </h3>
+            <p><strong>Price:</strong> ${{ "%.2f"|format(product.price|float) }}</p>
+            {% if product.is_sold %}
+              <span class="mini-sold-badge">SOLD</span>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="placeholder-text">No listings posted yet.</p>
+    {% endif %}
+  </div>
+  {# --- Reviews Section --- #}
+  <div class="profile-card profile-reviews-section">
+    <h2>Reviews for {{ user.name }}</h2>
+    {% if reviews %}
+      <ul class="review-list">
+        {% for review in reviews %}
+          <li class="review-item">
+            <p>"{{ review.text }}"</p>
+            <p class="review-rating">
+              <strong>Rating:</strong>
+              <span class="stars">
+                {% for i in range(1, 6) %}
+                  {% if i <= review.rating %}
+                    <span class="star filled">★</span>
+                  {% else %}
+                    <span class="star empty">☆</span>
+                  {% endif %}
+                {% endfor %}
+              </span>
+            </p>
+            <p><strong>By:</strong> {{ review.reviewer_name }} on {{ review.timestamp.strftime('%B %d, %Y') }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="placeholder-text">No reviews received yet.</p>
+    {% endif %}
+  {# Leave Review Button and Form (shown to others) #}
+{% if current_user.is_authenticated and current_user.id != user.id %}
+<div class="profile-actions leave-review-action">
+  <h3>Leave a Review for {{ user.name }}</h3>
+  <form action="{{ url_for('auth.leave_review', reviewed_user_id=user.id) }}" method="POST" class="review-form">
+    <textarea name="text" class="form-control" placeholder="Write your review..." required></textarea>
+    <label for="rating">Rating:</label>
+    <select name="rating" class="form-control" required>
+      <option value="5">5 - Excellent</option>
+      <option value="4">4 - Good</option>
+      <option value="3">3 - Average</option>
+      <option value="2">2 - Poor</option>
+      <option value="1">1 - Terrible</option>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">Submit Review</button>
+  </form>
+</div>
+{% endif %}
+  </div>
 
+</div> {# End profile-page-container #}
 {% endblock %}

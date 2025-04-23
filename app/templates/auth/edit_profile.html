@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Profile{% endblock %}
+
+{% block content %}
+<div class="form-container">
+  <h1>Edit Profile</h1>
+  <form method="POST" enctype="multipart/form-data">
+    {{ form.hidden_tag() }}
+
+    <div class="form-group">
+      {{ form.name.label }}
+      {{ form.name(class="form-control") }}
+      {% if form.name.errors %}
+        <div class="form-errors">
+          {% for error in form.name.errors %}
+            <span>{{ error }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="form-group">
+      {{ form.email.label }}
+      {{ form.email(class="form-control") }}
+      {% if form.email.errors %}
+        <div class="form-errors">
+          {% for error in form.email.errors %}
+            <span>{{ error }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="form-group">
+      {{ form.profile_info.label }}
+      {{ form.profile_info(class="form-control", rows=4) }}
+      {% if form.profile_info.errors %}
+        <div class="form-errors">
+          {% for error in form.profile_info.errors %}
+            <span>{{ error }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Changes</button>
+    <a href="{{ url_for('main.profile', user_id=current_user.id) }}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

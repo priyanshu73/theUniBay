@@ -89,3 +89,10 @@ class ProductForm(FlaskForm):
             print(f"Error loading categories: {e}")
             # Provide empty/default choice if DB fails
             self.category.choices = [(0, 'Error loading categories')]
+            
+
+class EditProfileForm(FlaskForm):
+    name = StringField('Name', validators=[DataRequired(), Length(max=50)])
+    email = StringField('Email', validators=[DataRequired(), Email(), Length(max=120)])
+    profile_info = TextAreaField('Profile Info', validators=[Length(max=500)])
+    submit = SubmitField('Save Changes')

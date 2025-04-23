@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1>{{ title }}</h1>
+
+{% if products %}
+    <div class="product-list"> {# Grid/Flex container #}
+        {% for product in products %}
+            <div class="product-item"> {# Card container #}
+
+                {# 1. Image Area #}
+                <div class="product-item-image-container">
+                    {% if product.image_path %}
+                        <a href="{{ url_for('product.product_view', product_id=product.id) }}"> {# Make image clickable #}
+                          <img src="{{ url_for('static', filename=product.image_path) }}" alt="{{ product.title }}" class="product-item-image">
+                        </a>
+                    {% else %}
+                        <div class="product-item-no-image">
+                            <span>No Image</span> {# Placeholder text #}
+                        </div>
+                    {% endif %}
+                    {# SOLD Badge Overlay #}
+                    {% if product.is_sold %}
+                        <span class="product-item-sold-badge">SOLD</span>
+                    {% endif %}
+                </div>
+
+                {# 2. Content Area Below Image #}
+                <div class="product-item-content">
+                    <h3 class="product-item-title"> {# Changed to h3 for better hierarchy #}
+                        <a href="{{ url_for('product.product_view', product_id=product.id) }}">{{ product.title }}</a>
+                    </h3>
+                    <p class="product-item-price">${{ "%.2f"|format(product.price|float) }}</p> {# Added float filter #}
+
+                    {# Optional Secondary Details (can be hidden/shown as needed) #}
+                    <div class="product-item-secondary-details">
+                        <p><small>Category: {{ product.category_name }}</small></p>
+                        {# <p><small>Condition: {{ product.condition.replace('_', ' ').title() }}</small></p> #}
+                        {# <p><small>Seller: {{ product.seller_name }}</small></p> #}
+                        {# <p><small>♥ {{ product.like_count }} | 💬 {{ product.comment_count }}</small></p> #}
+                    </div>
+                </div>
+
+                {# 3. Actions Area at the Bottom #}
+                <div class="product-item-actions">
+                    {% if current_user.is_authenticated %}
+                        <form action="{{ url_for('product.like', product_id=product.id) }}" method="POST" style="display: inline-block; margin: 0;">
+                            {# Like Button - Maybe just an icon? #}
+                            <button type="submit" class="btn-like-card {% if product.id in user_liked_ids %}liked{% endif %}"> {# Pass user_liked_ids from route #}
+                                <span class="icon">{% if product.id in user_liked_ids %}♥{% else %}♡{% endif %}</span>
+                                <span class="count">{{ product.like_count }}</span>
+                            </button>
+                        </form>
+                        <a href="{{ url_for('product.product_view', product_id=product.id) }}" class="btn btn-view-card">View</a>
+                    {% else %}
+                        {# Keep like count visible for non-logged in users #}
+                        <span class="like-count-display-card">
+                            <span class="icon">♡</span> {{ product.like_count }}
+                        </span>
+                        <a href="{{ url_for('product.product_view', product_id=product.id) }}" class="btn btn-view-card">View</a>
+                        {# <p class="login-prompt-card"><a href="{{ url_for('auth.login') }}">Log in</a></p> #}
+                    {% endif %}
+                </div>
+
+            </div> {# End product-item #}
+        {% endfor %}
+    </div> {# End product-list #}
+{% else %}
+    <p>No products available at the moment.</p>
+{% endif %}
+{% endblock %}

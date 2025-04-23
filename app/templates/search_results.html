@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Search Results{% endblock %}
+
+{% block content %}
+<div class="search-page-container">
+
+  {# --- Collapsible Search Form Section --- #}
+  {# Add 'open' attribute only if filters were applied #}
+  <details class="search-details" {% if not filters_applied %}open{% endif %}>
+    {# The summary is always visible and acts as the toggle #}
+    <summary class="search-summary">
+      <span>Search Filters</span> {# Text for the summary #}
+      <span class="summary-icon"></span> {# Placeholder for arrow icon #}
+    </summary>
+
+    {# The actual form goes inside the details tag #}
+    <form method="GET" action="{{ url_for('main.search') }}" class="search-form expanded-search-form">
+      {# ... keep all the form-rows and form-groups inside here ... #}
+      <div class="form-row">
+          <div class="form-group">
+              <label for="keyword">Keyword</label>
+              <input type="text" id="keyword" name="keyword" value="{{ search_params.keyword or '' }}" placeholder="e.g., textbook, laptop" class="form-control">
+          </div>
+          <div class="form-group">
+              <label for="category">Category</label>
+              <select id="category" name="category" class="form-control">
+                  <option value="">-- All Categories --</option>
+                  {% for cat in categories %}
+                      <option value="{{ cat.id }}" {% if search_params.category == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                  {% endfor %}
+              </select>
+          </div>
+      </div> {# End form-row #}
+
+      <div class="form-row">
+          <div class="form-group">
+              <label for="condition">Condition</label>
+              <select id="condition" name="condition" class="form-control">
+                  <option value="">-- Any Condition --</option>
+                  {% for value, display in conditions %}
+                  <option value="{{ value }}" {% if search_params.condition == value %}selected{% endif %}>{{ display }}</option>
+                  {% endfor %}
+              </select>
+          </div>
+          <div class="form-group price-range-group">
+              <label>Price Range ($)</label>
+              <div class="price-inputs">
+                  <input type="number" name="min_price" value="{{ search_params.min_price or '' }}" placeholder="Min" step="0.01" min="0" class="form-control price-input">
+                  <span>-</span>
+                  <input type="number" name="max_price" value="{{ search_params.max_price or '' }}" placeholder="Max" step="0.01" min="0" class="form-control price-input">
+              </div>
+          </div>
+          <div class="form-group">
+              <label for="status">Status</label>
+              <select id="status" name="status" class="form-control">
+                  <option value="available" {% if search_params.status == 'available' %}selected{% endif %}>Available</option>
+                  <option value="sold" {% if search_params.status == 'sold' %}selected{% endif %}>Sold</option>
+                  <option value="all" {% if search_params.status == 'all' %}selected{% endif %}>All</option>
+              </select>
+          </div>
+      </div> {# End form-row #}
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Apply Filters</button>
+        <a href="{{ url_for('main.search') }}" class="btn btn-secondary">Clear Filters</a>
+      </div>
+    </form> {# End of the form #}
+
+  </details> {# End of the details element #}
+
+
+  <hr class="search-results-divider">
+
+  {# --- Search Results Section (Remains the same) --- #}
+  <h2>Results</h2>
+  {% if products %}
+    <div class="product-list"> {# Reuse the product list grid from index.html #}
+        {% for product in products %}
+            {# --- Include Product Card (copied/adapted from index.html) --- #}
+             <div class="product-item">
+                <div class="product-item-image-container">
+                    <a href="{{ url_for('product.product_view', product_id=product.id) }}">
+                        {% if product.image_path %}
+                            <img src="{{ url_for('static', filename=product.image_path) }}" alt="{{ product.title }}" class="product-item-image">
+                        {% else %}
+                            <div class="product-item-no-image"><span>No Image</span></div>
+                        {% endif %}
+                    </a>
+                    {% if product.is_sold %}
+                        <span class="product-item-sold-badge">SOLD</span>
+                    {% endif %}
+                </div>
+                <div class="product-item-content">
+                    <h3 class="product-item-title">
+                        <a href="{{ url_for('product.product_view', product_id=product.id) }}">{{ product.title }}</a>
+                    </h3>
+                    <p class="product-item-price">${{ "%.2f"|format(product.price|float) }}</p>
+                </div>
+                <div class="product-item-actions">
+                    {% if current_user.is_authenticated %}
+                        <form action="{{ url_for('product.like', product_id=product.id) }}" method="POST" style="display: inline-block; margin: 0;">
+                            <button type="submit" class="btn-like-card {% if product.id in user_liked_ids %}liked{% endif %}">
+                                <span class="icon">{% if product.id in user_liked_ids %}♥{% else %}♡{% endif %}</span>
+                                <span class="count">{{ product.like_count }}</span>
+                            </button>
+                        </form>
+                        <a href="{{ url_for('product.product_view', product_id=product.id) }}" class="btn btn-view-card">View</a>
+                    {% else %}
+                        <span class="like-count-display-card"><span class="icon">♡</span> {{ product.like_count }}</span>
+                        <a href="{{ url_for('product.product_view', product_id=product.id) }}" class="btn btn-view-card">View</a>
+                    {% endif %}
+                </div>
+            </div>
+            {# --- End Product Card --- #}
+        {% endfor %}
+    </div>
+  {% else %}
+    <p class="placeholder-text">No listings found matching your criteria.</p>
+  {% endif %}
+
+</div> {# End search-page-container #}
+{% endblock %}

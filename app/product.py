@@ -15,6 +15,34 @@ from db.db import get_db
 bp = Blueprint('product', __name__, url_prefix='/product')
 
 # Helper function to save uploaded image
+# --- View All Products Route ---
+@bp.route('/all')
+def all_products():
+    db = get_db()
+    try:
+        # Fetch all available products (not sold)
+        products = db.execute(
+            'SELECT p.*, u.name as seller_name, c.name as category_name,  p.image_path '
+            'FROM products p '
+            'JOIN users u ON p.seller_id = u.id '
+            'JOIN categories c ON p.category_id = c.id '
+            'WHERE p.is_sold = 0 '
+            'ORDER BY p.date_posted DESC'
+        ).fetchall()
+
+        return render_template(
+            'product/all.html',
+            title='All Products',
+            products=products
+        )
+    except sqlite3.Error as e:
+        print(f"DB Error on fetching all products: {e}")  # Log the error
+        flash('An error occurred while retrieving all products.', 'danger')
+        return redirect(url_for('main.index'))
+
+
+
+
 def save_image(form_image):
     if not form_image.data:
         return None
@@ -64,7 +92,7 @@ def create():
             product_id = cursor.lastrowid
             
             flash('Your listing has been created!', 'success')
-            return redirect(url_for('product.view', product_id=product_id))
+            return redirect(url_for('product.product_view', product_id=product_id))
             
         except sqlite3.Error as e:
             db.rollback()
@@ -72,32 +100,83 @@ def create():
             print(f"DB Error on product creation: {e}")  # Log the error
     
     # If GET request or form validation failed
-    return render_template('product/create.html', title='Create Listing', form=form)
+    return render_template('product/create.html', title='', form=form)
 
-# --- View Product Route ---
 @bp.route('/<int:product_id>')
-def view(product_id):
+@login_required
+# Assuming this function is decorated correctly, e.g., @product_bp.route('/<int:product_id>')
+def product_view(product_id):
     db = get_db()
+    product = None  # Initialize to handle potential errors early
+    comments = []   # Initialize
+    user_liked = False # Default status: user has not liked the product
+
     try:
-        # Join with users and categories to get seller and category info
-        product = db.execute(
-            'SELECT p.*, u.name as seller_name, u.email as seller_email, c.name as category_name '
-            'FROM products p '
-            'JOIN users u ON p.seller_id = u.id '
-            'JOIN categories c ON p.category_id = c.id '
-            'WHERE p.id = ?',
+        # Fetch product details (Your existing query)
+        product_data = db.execute(
+            '''
+            SELECT
+                p.*,
+                u.name AS seller_name,
+                u.email AS seller_email,
+                c.name AS category_name,
+                (SELECT COUNT(*) FROM likes WHERE likes.product_id = p.id) AS like_count,
+                (SELECT COUNT(*) FROM comments WHERE comments.product_id = p.id) AS comment_count
+            FROM products p
+            JOIN users u ON p.seller_id = u.id
+            JOIN categories c ON p.category_id = c.id
+            WHERE p.id = ?
+            ''',
             (product_id,)
         ).fetchone()
-        
-        if product:
-            return render_template('product/view.html', title=product['title'], product=product)
-        else:
-            flash('Product not found.', 'warning')
-            return redirect(url_for('main.index'))
-            
+
+        # Check if product exists
+        if product_data is None:
+            flash("Product not found.", "warning")
+            return redirect(url_for('main.index')) # Or render a 404 template
+
+        # Convert Row object to a mutable dictionary (optional but can be helpful)
+        # If you prefer accessing via product['column'], otherwise use product_data.column
+        product = dict(product_data)
+
+
+        # Fetch comments for the product (Your existing query)
+        comments_data = db.execute(
+            '''
+            SELECT
+                com.text,
+                com.timestamp,
+                u.name AS commenter_name
+            FROM comments com
+            JOIN users u ON com.user_id = u.id
+            WHERE com.product_id = ?
+            ORDER BY com.timestamp DESC
+            ''',
+            (product_id,)
+        ).fetchall()
+        # Convert Row objects to dicts if needed
+        comments = [dict(row) for row in comments_data]
+
+        # --- Check if the current user has liked this product ---
+        if current_user.is_authenticated:
+            like_exists = db.execute(
+                'SELECT 1 FROM likes WHERE user_id = ? AND product_id = ? LIMIT 1',
+                (current_user.id, product_id) # Use current_user.id from Flask-Login
+            ).fetchone()
+            if like_exists:
+                user_liked = True # Set to True if a like record is found
+        # --- End like check ---
+
+        # Pass the necessary data to the template
+        return render_template('product/view.html', # Assuming your template is view.html
+                               product=product,       # Pass the product dictionary (or Row object)
+                               comments=comments,     # Pass the list of comment dictionaries
+                               user_liked=user_liked) # Pass the boolean status
+
     except sqlite3.Error as e:
-        print(f"DB Error on product view: {e}")  # Log the error
-        flash('An error occurred while retrieving the product.', 'danger')
+        # Log the error for server-side debugging
+        print(f"Database Error in product_view (product_id: {product_id}): {e}")
+        flash("An error occurred while retrieving product details. Please try again.", "danger")
         return redirect(url_for('main.index'))
 
 # --- Edit Product Route ---
@@ -118,7 +197,7 @@ def edit(product_id):
             
         if product['seller_id'] != current_user.id:
             flash('You do not have permission to edit this listing.', 'danger')
-            return redirect(url_for('product.view', product_id=product_id))
+            return redirect(url_for('product.product_view', product_id=product_id))
             
         # If we got here, the product exists and belongs to the current user
         form = ProductForm()
@@ -162,7 +241,7 @@ def edit(product_id):
             db.commit()
             
             flash('Your listing has been updated!', 'success')
-            return redirect(url_for('product.view', product_id=product_id))
+            return redirect(url_for('product.product_view', product_id=product_id))
             
         return render_template('product/edit.html', title='Edit Listing', form=form, product=product)
         
@@ -170,7 +249,7 @@ def edit(product_id):
         db.rollback()
         print(f"DB Error on product edit: {e}")  # Log the error
         flash('An error occurred while updating your listing.', 'danger')
-        return redirect(url_for('product.view', product_id=product_id))
+        return redirect(url_for('product.product_view', product_id=product_id))
 
 # --- Delete Product Route ---
 @bp.route('/delete/<int:product_id>', methods=['POST'])
@@ -190,7 +269,7 @@ def delete(product_id):
             
         if product['seller_id'] != current_user.id:
             flash('You do not have permission to delete this listing.', 'danger')
-            return redirect(url_for('product.view', product_id=product_id))
+            return redirect(url_for('product.product_view', product_id=product_id))
             
         # Delete the image file if it exists
         if product['image_path']:
@@ -209,7 +288,7 @@ def delete(product_id):
         db.rollback()
         print(f"DB Error on product deletion: {e}")  # Log the error
         flash('An error occurred while deleting your listing.', 'danger')
-        return redirect(url_for('product.view', product_id=product_id))
+        return redirect(url_for('product.product_view', product_id=product_id))
 
 # --- List Products by Category ---
 @bp.route('/category/<int:category_id>')
@@ -297,7 +376,7 @@ def toggle_sold(product_id):
             
         if product['seller_id'] != current_user.id:
             flash('You do not have permission to update this listing.', 'danger')
-            return redirect(url_for('product.view', product_id=product_id))
+            return redirect(url_for('product.product_view', product_id=product_id))
             
         # Toggle the is_sold status
         new_status = 1 if product['is_sold'] == 0 else 0
@@ -306,10 +385,86 @@ def toggle_sold(product_id):
         
         status_msg = 'marked as sold' if new_status == 1 else 'marked as available'
         flash(f'Your listing has been {status_msg}.', 'success')
-        return redirect(url_for('product.view', product_id=product_id))
+        return redirect(url_for('product.product_view', product_id=product_id))
         
     except sqlite3.Error as e:
         db.rollback()
         print(f"DB Error on toggle sold status: {e}")  # Log the error
         flash('An error occurred while updating your listing status.', 'danger')
-        return redirect(url_for('product.view', product_id=product_id))
+        return redirect(url_for('product.product_view', product_id=product_id))
+    
+@bp.route('/like/<int:product_id>', methods=['POST'])
+@login_required
+def like(product_id):
+    db = get_db()
+    user_id = current_user.id
+    print(f"User ID: {user_id}, Product ID: {product_id}") # Debugging line
+
+    try:
+        # Check if the user has already liked the product
+        # We just need to know if a row exists, no need to select a specific column like 'id'
+        existing_like = db.execute(
+            'SELECT 1 FROM likes WHERE user_id = ? AND product_id = ? LIMIT 1', # Select 1 is efficient
+            (user_id, product_id)
+        ).fetchone()
+
+        if existing_like:
+            # --- User has already liked, so UNLIKE ---
+            # Delete using the composite key fields
+            db.execute(
+                'DELETE FROM likes WHERE user_id = ? AND product_id = ?',
+                (user_id, product_id) # Pass the composite key values
+            )
+            db.commit()
+            # Optional: flash('Product unliked.', 'info')
+            print(f"Unliked product {product_id} by user {user_id}") # Debugging
+        else:
+            # --- User hasn't liked, so LIKE ---
+            # Insert remains the same
+            db.execute(
+                'INSERT INTO likes (user_id, product_id, timestamp) VALUES (?, ?, ?)',
+                (user_id, product_id, datetime.now())
+            )
+            db.commit()
+            # Optional: flash('Product liked!', 'success')
+            print(f"Liked product {product_id} by user {user_id}") # Debugging
+
+    except sqlite3.Error as e:
+        db.rollback() # Ensure rollback on error
+        # Log the error with more context potentially
+        print(f"DB Error on toggling like for product {product_id} by user {user_id}: {e}")
+        flash('An error occurred. Please try again.', 'danger')
+
+    # Redirect back to the product page.
+    # Ensure the endpoint name 'product.product_view' matches your function definition
+    return redirect(url_for('product.product_view', product_id=product_id))
+# --- Comment route remains the same ---
+
+
+@bp.route('/comment/<int:product_id>', methods=['POST'])
+@login_required
+def comment(product_id):
+    db = get_db()
+    text = request.form.get('text')
+    user_id = current_user.id
+
+    if not text or not text.strip(): # Also check for empty strings/whitespace
+        flash('Comment cannot be empty.', 'warning')
+        return redirect(url_for('product.product_view', product_id=product_id, _anchor='comments')) # Go to comment anchor
+
+    try:
+        # Add a comment
+        db.execute(
+            'INSERT INTO comments (user_id, product_id, text, timestamp) VALUES (?, ?, ?, ?)',
+            (user_id, product_id, text.strip(), datetime.now()) # Trim whitespace from text
+        )
+        db.commit()
+        flash('Your comment has been posted!', 'success')
+
+    except sqlite3.Error as e:
+        db.rollback()
+        print(f"DB Error on commenting for product {product_id} by user {user_id}: {e}")
+        flash('An error occurred while posting your comment.', 'danger')
+
+    # Redirect back, adding an anchor to jump to the comments section
+    return redirect(url_for('product.product_view', product_id=product_id, _anchor='comments'))

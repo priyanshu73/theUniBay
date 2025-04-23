@@ -1,4 +1,5 @@
 # app/auth.py
+from datetime import datetime
 from flask import (
     Blueprint, render_template, request, flash, redirect, url_for, session
 )
@@ -6,7 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, logout_user, login_required, current_user
 import sqlite3
 
-from .forms import RegistrationForm, LoginForm
+from .forms import EditProfileForm, RegistrationForm, LoginForm
 from .models import User
 from db.db import get_db # Import the get_db helper
 from app import login_manager # Import login_manager from app factory __init__
@@ -113,3 +114,91 @@ def logout():
     logout_user()
     flash('You have been logged out.', 'success')
     return redirect(url_for('main.index'))
+
+@bp.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    db = get_db()
+    form = EditProfileForm()
+
+    if request.method == 'GET':
+        # Pre-fill the form with the current user's data
+        form.name.data = current_user.name
+        form.email.data = current_user.email
+        form.profile_info.data = current_user.profile_info
+
+    if form.validate_on_submit():
+        name = form.name.data
+        email = form.email.data.lower()
+        profile_info = form.profile_info.data
+
+        try:
+            # Update the user's profile in the database
+            db.execute(
+                'UPDATE users SET name = ?, email = ?, profile_info = ? WHERE id = ?',
+                (name, email, profile_info, current_user.id)
+            )
+            db.commit()
+
+            # Update the current_user object
+            current_user.name = name
+            current_user.email = email
+            current_user.profile_info = profile_info
+
+            flash('Your profile has been updated successfully!', 'success')
+            return redirect(url_for('main.profile', user_id=current_user.id))
+
+        except sqlite3.IntegrityError:
+            db.rollback()
+            flash('The email address is already in use. Please use a different email.', 'danger')
+        except sqlite3.Error as e:
+            db.rollback()
+            flash(f'An error occurred while updating your profile: {e}', 'danger')
+            print(f"DB Error on profile update: {e}")
+
+    return render_template('auth/edit_profile.html', title='Edit Profile', form=form)
+
+# --- Updated leave_review Route ---
+@bp.route('/leave_review/<int:reviewed_user_id>', methods=['POST'])
+@login_required
+def leave_review(reviewed_user_id):
+    db = get_db()
+    text = request.form.get('text') # Keep getting 'text' from form
+    rating = request.form.get('rating')
+
+    # --- Keep validation as before ---
+    if not text or not text.strip():
+        flash('Review text cannot be empty.', 'warning')
+        return redirect(url_for('main.profile', user_id=reviewed_user_id))
+    if not rating:
+        flash('Rating is required.', 'warning')
+        return redirect(url_for('main.profile', user_id=reviewed_user_id))
+    try:
+        rating_int = int(rating)
+        if not 1 <= rating_int <= 5:
+             raise ValueError("Rating out of range")
+    except ValueError:
+         flash('Invalid rating value.', 'warning')
+         return redirect(url_for('main.profile', user_id=reviewed_user_id))
+    if current_user.id == reviewed_user_id:
+        flash('You cannot review yourself.', 'warning')
+        return redirect(url_for('main.profile', user_id=reviewed_user_id))
+    # --- End validation ---
+
+    try:
+        # CORRECTED: Insert into 'comment' column
+        db.execute(
+            '''
+            INSERT INTO reviews (reviewer_id, reviewed_user_id, comment, rating, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+            ''',
+            (current_user.id, reviewed_user_id, text.strip(), rating_int,datetime.now())
+        )
+        db.commit()
+        flash('Your review has been submitted!', 'success')
+    except sqlite3.Error as e:
+        db.rollback()
+        flash(f'An error occurred while submitting your review: {e}', 'danger')
+        print(f"DB Error on review submission: {e}")
+
+    return redirect(url_for('main.profile', user_id=reviewed_user_id, _anchor='reviews'))

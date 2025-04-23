@@ -1,0 +1,27 @@
+{% extends "base.html" %} {% block title %}Marketplace Statistics{% endblock %}
+{% block page_header %}Marketplace Statistics{% endblock %} {% block content %}
+<div class="stats-page-container">
+  <h2>Listings per Category</h2>
+
+  {% if category_counts %}
+  <table class="stats-table">
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th>Number of Listings</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in category_counts %}
+      <tr>
+        <td>{{ row.name }}</td>
+        <td>{{ row.product_count }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="placeholder-text">No statistics available or categories found.</p>
+  {% endif %}
+</div>
+{% endblock %}

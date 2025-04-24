@@ -26,14 +26,12 @@
                     {% endif %}
                 </div>
 
-                {# 2. Content Area Below Image #}
                 <div class="product-item-content">
                     <h3 class="product-item-title"> {# Changed to h3 for better hierarchy #}
                         <a href="{{ url_for('product.product_view', product_id=product.id) }}">{{ product.title }}</a>
                     </h3>
                     <p class="product-item-price">${{ "%.2f"|format(product.price|float) }}</p> {# Added float filter #}
 
-                    {# Optional Secondary Details (can be hidden/shown as needed) #}
                     <div class="product-item-secondary-details">
                         <p><small>Category: {{ product.category_name }}</small></p>
                         {# <p><small>Condition: {{ product.condition.replace('_', ' ').title() }}</small></p> #}
@@ -42,7 +40,7 @@
                     </div>
                 </div>
 
-                {# 3. Actions Area at the Bottom #}
+               
                 <div class="product-item-actions">
                     {% if current_user.is_authenticated %}
                         <form action="{{ url_for('product.like', product_id=product.id) }}" method="POST" style="display: inline-block; margin: 0;">
@@ -54,7 +52,6 @@
                         </form>
                         <a href="{{ url_for('product.product_view', product_id=product.id) }}" class="btn btn-view-card">View</a>
                     {% else %}
-                        {# Keep like count visible for non-logged in users #}
                         <span class="like-count-display-card">
                             <span class="icon">♡</span> {{ product.like_count }}
                         </span>

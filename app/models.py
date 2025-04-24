@@ -1,20 +1,18 @@
-# app/models.py
 from flask_login import UserMixin
-from db.db import get_db # Import helper to fetch user data if needed here
+from db.db import get_db
 import sqlite3
+
 class User(UserMixin):
     def __init__(self, id, name, email, profile_info=None, campus_id=None):
         self.id = id
         self.name = name
         self.email = email
-        self.profile_info = profile_info # Add other fields as needed
+        self.profile_info = profile_info
         self.campus_id = campus_id
 
-    # UserMixin requires this method
     def get_id(self):
         return str(self.id)
 
-    # Optional: Static method to fetch user by ID (alternative to user_loader logic)
     @staticmethod
     def get(user_id):
         try:

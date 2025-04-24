@@ -26,7 +26,6 @@
 
         <div class="search-container">
           <form action="{{ url_for('main.search') }}" method="get">
-            {# ACTION points to main.search #}
             <input
               type="text"
               placeholder="Search listings..."
@@ -34,7 +33,6 @@
               class="nav-search-input"
               value="{{ request.args.get('keyword', '') }}"
             />
-            {# NAME is keyword #}
             <button type="submit" class="btn btn-secondary btn-search">
               Search
             </button>

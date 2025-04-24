@@ -1,19 +1,15 @@
 {% extends "base.html" %}
 
 {% block content %}
-{# 'user_liked' is passed directly from Flask context, no need for {% set %} #}
 
 <div class="product-post-card">
 
-  {# 1. Post Header: Seller Info & Date #}
+ 
   <div class="post-header">
     <div class="seller-info">
-      {# Using dictionary key access as 'product' is a dict in the route #}
       <a href="{{ url_for('main.profile', user_id=product['seller_id']) }}" class="seller-name">{{ product['seller_name'] }}</a>
       <span class="post-date">
           {% if product['date_posted'] %}
-              {# Assuming product['date_posted'] is compatible with strftime #}
-              {# You might need a custom filter if it's a string #}
               {{ product['date_posted'].strftime('%b %d, %Y') if product['date_posted'].strftime else product['date_posted'] }}
           {% else %}
               Date N/A
@@ -36,7 +32,6 @@
 
   {# 3. Engagement Bar: Like, Comment Info #}
   <div class="post-engagement">
-    {# Using 'user_liked' variable from Flask context #}
     {% if current_user.is_authenticated and current_user.id != product['seller_id'] %}
       <form action="{{ url_for('product.like', product_id=product['id']) }}" method="POST" class="like-form">
          <button type="submit" class="btn-like {% if user_liked %}liked{% endif %}">
@@ -64,7 +59,6 @@
   {# 4. Post Content: Title, Price, Description, Details #}
   <div class="post-content">
     <h1 class="post-title">{{ product['title'] }}</h1>
-    {# Use |float filter for safety before format #}
     <p class="post-price">${{ "%.2f"|format(product['price']|float) }}</p>
 
     {% if product['description'] %}
@@ -75,7 +69,6 @@
 
     <div class="post-details">
         <p><strong>Category:</strong> {{ product['category_name'] }}</p>
-        {# Use .get() for condition if it might be missing, or ensure it exists #}
         <p><strong>Condition:</strong> {{ product.get('condition', '').replace('_', ' ').title() }}</p>
     </div>
 
@@ -110,7 +103,6 @@
     <h2>Comments</h2>
     {% if comments %}
       <ul class="comment-list">
-        {# Looping through 'comments' list, which contains dictionaries #}
         {% for comment in comments %}
           <li class="comment-item">
             <div class="comment-content">
@@ -118,7 +110,6 @@
               <span class="comment-text">{{ comment['text'] }}</span>
                <span class="comment-timestamp">
                    {% if comment['timestamp'] %}
-                        {# Assuming comment['timestamp'] is compatible with strftime #}
                        {{ comment['timestamp'].strftime('%b %d, %Y %H:%M') if comment['timestamp'].strftime else comment['timestamp'] }}
                    {% endif %}
                </span>
@@ -141,6 +132,6 @@
     {% endif %}
   </div>
 
-</div> {# End product-post-card #}
+</div>
 
 {% endblock %}

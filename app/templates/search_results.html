@@ -4,18 +4,13 @@
 {% block content %}
 <div class="search-page-container">
 
-  {# --- Collapsible Search Form Section --- #}
-  {# Add 'open' attribute only if filters were applied #}
   <details class="search-details" {% if not filters_applied %}open{% endif %}>
-    {# The summary is always visible and acts as the toggle #}
     <summary class="search-summary">
-      <span>Search Filters</span> {# Text for the summary #}
-      <span class="summary-icon"></span> {# Placeholder for arrow icon #}
+      <span>Search Filters</span>
+      <span class="summary-icon"></span>
     </summary>
 
-    {# The actual form goes inside the details tag #}
     <form method="GET" action="{{ url_for('main.search') }}" class="search-form expanded-search-form">
-      {# ... keep all the form-rows and form-groups inside here ... #}
       <div class="form-row">
           <div class="form-group">
               <label for="keyword">Keyword</label>
@@ -30,7 +25,7 @@
                   {% endfor %}
               </select>
           </div>
-      </div> {# End form-row #}
+      </div>
 
       <div class="form-row">
           <div class="form-group">
@@ -58,25 +53,23 @@
                   <option value="all" {% if search_params.status == 'all' %}selected{% endif %}>All</option>
               </select>
           </div>
-      </div> {# End form-row #}
+      </div>
 
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">Apply Filters</button>
         <a href="{{ url_for('main.search') }}" class="btn btn-secondary">Clear Filters</a>
       </div>
-    </form> {# End of the form #}
+    </form>
 
-  </details> {# End of the details element #}
+  </details>
 
 
   <hr class="search-results-divider">
 
-  {# --- Search Results Section (Remains the same) --- #}
   <h2>Results</h2>
   {% if products %}
-    <div class="product-list"> {# Reuse the product list grid from index.html #}
+    <div class="product-list">
         {% for product in products %}
-            {# --- Include Product Card (copied/adapted from index.html) --- #}
              <div class="product-item">
                 <div class="product-item-image-container">
                     <a href="{{ url_for('product.product_view', product_id=product.id) }}">
@@ -111,12 +104,11 @@
                     {% endif %}
                 </div>
             </div>
-            {# --- End Product Card --- #}
         {% endfor %}
     </div>
   {% else %}
     <p class="placeholder-text">No listings found matching your criteria.</p>
   {% endif %}
 
-</div> {# End search-page-container #}
+</div>
 {% endblock %}

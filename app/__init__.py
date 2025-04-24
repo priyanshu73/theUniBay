@@ -1,16 +1,16 @@
-# app/__init__.py
+
 import os
 import sqlite3
 from flask import Flask, g
 from flask_login import LoginManager
 from config import Config
-from db import db as db_module # Corrected import
+from db import db as db_module
 
-# --- KEEP login_manager initialization at module level ---
+
 login_manager = LoginManager()
-# --- Configure login_view using the blueprint name 'auth' ---
+
 login_manager.login_view = 'auth.login'
-login_manager.login_message = 'Please log in to access this page.' # Customize message
+login_manager.login_message = 'Please log in to access this page.'
 login_manager.login_message_category = 'info'
 
 def create_app(config_class=Config):
@@ -22,24 +22,24 @@ def create_app(config_class=Config):
     except OSError:
         pass
 
-    # Initialize Flask extensions
-    login_manager.init_app(app) # Initialize LoginManager with the app
+   
+    login_manager.init_app(app)
 
-    # Initialize Database utilities
-    db_module.init_app(app) # Register db commands and teardown
+   
+    db_module.init_app(app)
 
-    # --- Register Blueprints ---
-    from . import routes as main_routes # Alias to avoid name clash
+   
+    from . import routes as main_routes
     app.register_blueprint(main_routes.bp)
 
-    # --- Import and Register Auth Blueprint ---
+   
     from . import auth
-    app.register_blueprint(auth.bp) # url_prefix='/auth' is defined in auth.py
+    app.register_blueprint(auth.bp)
 
-    # register product blueprint
+   
     from app import product
     app.register_blueprint(product.bp)
-    # Register other blueprints (e.g., products) later
+    
 
     print(f"App created with instance path: {app.instance_path}")
     print(f"Database path from config: {app.config['DATABASE']}")

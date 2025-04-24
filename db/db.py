@@ -16,11 +16,11 @@ def get_db():
                 db_path,
                 detect_types=sqlite3.PARSE_DECLTYPES
             )
-            g.db.row_factory = sqlite3.Row # Access columns by name
+            g.db.row_factory = sqlite3.Row 
             print(f"Database connection established to: {db_path}")
         except sqlite3.Error as e:
             print(f"Database connection error: {e}")
-            raise # Re-raise the error to halt execution if connection fails
+            raise 
     return g.db
 
 def close_db(e=None):
@@ -35,7 +35,7 @@ def init_db():
     db = get_db()
     schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
     try:
-        with current_app.open_resource(schema_path, 'rt') as f: # Use relative path from app context
+        with current_app.open_resource(schema_path, 'rt') as f: 
             db.executescript(f.read())
         print("Initialized the database schema.")
     except FileNotFoundError:
@@ -48,7 +48,7 @@ def init_db():
 @with_appcontext
 def init_db_command():
     """Flask CLI command to initialize the database."""
-    import os # Import os here for path joining within the command context
+    import os 
     print("Attempting to initialize database...")
     init_db()
     click.echo('Initialized the database.')
@@ -56,5 +56,5 @@ def init_db_command():
 
 def init_app(app):
     """Register database functions with the Flask app."""
-    app.teardown_appcontext(close_db) # Call close_db when cleaning up after returning response
-    app.cli.add_command(init_db_command) # Add the 'flask init-db' command
+    app.teardown_appcontext(close_db)
+    app.cli.add_command(init_db_command)

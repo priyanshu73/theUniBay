@@ -16,13 +16,18 @@
       <h1>{{ user.name }}</h1>
       <p class="profile-meta">
         <span class="email-info">
-          <i class="icon icon-email"></i> {# Placeholder for icon #}
+          <i class="fa-solid fa-envelope"></i> {# Placeholder for icon #}
           {{ user.email }}
         </span>
         <span class="join-date-info">
-          <i class="icon icon-calendar"></i> {# Placeholder for icon #}
+          <i class="fa-regular fa-calendar-days"></i> {# Placeholder for icon #}
           Member Since: {{ user.join_date.strftime('%B %d, %Y') if user.join_date else 'N/A' }} {# Nicer format #}
         </span>
+        {% if user.campus_name %}
+      <span class="campus-info">
+        <i class="fas fa-school"></i> Campus: {{ user.campus_name }}
+      </span>
+    {% endif %}
       </p>
       {# Edit profile button only shown to the profile owner #}
       {% if current_user.is_authenticated and current_user.id == user.id %}

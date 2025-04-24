@@ -14,34 +14,6 @@ from db.db import get_db
 # Create Blueprint
 bp = Blueprint('product', __name__, url_prefix='/product')
 
-# Helper function to save uploaded image
-# --- View All Products Route ---
-@bp.route('/all')
-def all_products():
-    db = get_db()
-    try:
-        # Fetch all available products (not sold)
-        products = db.execute(
-            'SELECT p.*, u.name as seller_name, c.name as category_name,  p.image_path '
-            'FROM products p '
-            'JOIN users u ON p.seller_id = u.id '
-            'JOIN categories c ON p.category_id = c.id '
-            'WHERE p.is_sold = 0 '
-            'ORDER BY p.date_posted DESC'
-        ).fetchall()
-
-        return render_template(
-            'product/all.html',
-            title='All Products',
-            products=products
-        )
-    except sqlite3.Error as e:
-        print(f"DB Error on fetching all products: {e}")  # Log the error
-        flash('An error occurred while retrieving all products.', 'danger')
-        return redirect(url_for('main.index'))
-
-
-
 
 def save_image(form_image):
     if not form_image.data:

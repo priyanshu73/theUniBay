@@ -95,4 +95,5 @@ class EditProfileForm(FlaskForm):
     name = StringField('Name', validators=[DataRequired(), Length(max=50)])
     email = StringField('Email', validators=[DataRequired(), Email(), Length(max=120)])
     profile_info = TextAreaField('Profile Info', validators=[Length(max=500)])
+    campus_id = SelectField('Campus', coerce=int)  # Dropdown for campuses
     submit = SubmitField('Save Changes')

@@ -121,22 +121,31 @@ def edit_profile():
     db = get_db()
     form = EditProfileForm()
 
+
+    campuses = db.execute(
+        'SELECT id, name FROM campuses ORDER BY name'
+    ).fetchall()
+    
+    form.campus_id.choices = [(campus['id'], campus['name']) for campus in campuses]
+    
     if request.method == 'GET':
         # Pre-fill the form with the current user's data
         form.name.data = current_user.name
         form.email.data = current_user.email
         form.profile_info.data = current_user.profile_info
+        form.campus_id.data = current_user.campus_id
 
     if form.validate_on_submit():
         name = form.name.data
         email = form.email.data.lower()
         profile_info = form.profile_info.data
+        campus_id = form.campus_id.data
 
         try:
             # Update the user's profile in the database
             db.execute(
-                'UPDATE users SET name = ?, email = ?, profile_info = ? WHERE id = ?',
-                (name, email, profile_info, current_user.id)
+                'UPDATE users SET name = ?, email = ?, profile_info = ?, campus_id = ? WHERE id = ?',
+                (name, email, profile_info, campus_id, current_user.id)
             )
             db.commit()
 
@@ -144,7 +153,7 @@ def edit_profile():
             current_user.name = name
             current_user.email = email
             current_user.profile_info = profile_info
-
+            current_user.campus_id = campus_id
             flash('Your profile has been updated successfully!', 'success')
             return redirect(url_for('main.profile', user_id=current_user.id))
 
@@ -156,8 +165,7 @@ def edit_profile():
             flash(f'An error occurred while updating your profile: {e}', 'danger')
             print(f"DB Error on profile update: {e}")
 
-    return render_template('auth/edit_profile.html', title='Edit Profile', form=form)
-
+    return render_template('auth/edit_profile.html', title='Edit Profile', form=form, campuses=campuses)
 # --- Updated leave_review Route ---
 @bp.route('/leave_review/<int:reviewed_user_id>', methods=['POST'])
 @login_required

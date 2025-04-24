@@ -53,16 +53,23 @@ def index():
 def profile(user_id):
     db = get_db()
     try:
-        # 1. Fetch User Details
+        # Fetch user details, including campus name
         user_row = db.execute(
-            'SELECT id, name, email, join_date, profile_info FROM users WHERE id = ?',
+            '''
+            SELECT 
+                u.id, u.name, u.email, u.join_date, u.profile_info, 
+                c.name AS campus_name
+            FROM users u
+            LEFT JOIN campuses c ON u.campus_id = c.id
+            WHERE u.id = ?
+            ''',
             (user_id,)
         ).fetchone()
 
         if not user_row:
             abort(404)
 
-        # 2. Fetch User's Listings
+        # Fetch user's listings
         user_products_rows = db.execute(
             '''
             SELECT id, title, price, is_sold
@@ -73,11 +80,11 @@ def profile(user_id):
             (user_id,)
         ).fetchall()
 
-        # 3. Fetch Reviews ABOUT this User
+        # Fetch reviews about this user
         reviews_rows = db.execute(
             '''
             SELECT
-                r.comment AS text, -- CORRECTED: Select 'comment' column, alias as 'text'
+                r.comment AS text,
                 r.rating,
                 r.timestamp,
                 u.name AS reviewer_name
@@ -89,10 +96,10 @@ def profile(user_id):
             (user_id,)
         ).fetchall()
 
-        # 4. Pass all data to the template
+        # Render the profile page with all relevant data
         return render_template(
             'profile.html',
-            title=f"",
+            title=f"{user_row['name']}'s Profile",
             user=user_row,
             user_products=user_products_rows,
             reviews=reviews_rows
@@ -102,8 +109,7 @@ def profile(user_id):
         print(f"DB Error on profile view (user_id: {user_id}): {e}")
         flash("Could not retrieve complete profile information.", "danger")
         abort(500)
-
-
+        
 @bp.route('/search')
 def search():
     # 1. Get parameters from URL query string

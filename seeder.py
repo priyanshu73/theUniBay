@@ -21,7 +21,8 @@ import uuid
 
 # --- Configuration ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'instance', 'default.sqlite')
+DB_PATH = os.path.join(BASE_DIR, 'instance', 'default.sqlite') # Adjust as needed
+# Ensure the database path is correct and exists
 
 NUM_USERS = 25
 NUM_PRODUCTS_PER_USER_RANGE = (2, 7) # Slightly increased range
